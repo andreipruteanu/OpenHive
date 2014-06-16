@@ -37,11 +37,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class OpenHive {
 private:
+	// the script that is going to be executed
+	script_t* script;
+
 	// the global state of the application
 	mainState_t mainState;
 
-	// the state of the transport protocol
-	transportState_t transportState;
+	// TCP handle used for Logging
+	TCP* tcpHandler;
 
 	// the pin state info
 	pinState_t pinState;

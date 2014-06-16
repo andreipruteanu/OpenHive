@@ -32,10 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tcp.h"
 #include "types.h"
 
-//extern mainState_t mainState;
-
-extern TCP* tcpHandle;
-
 // variable for selecting the debugging level
 uint8_t debuglevel[LOG_LASTENTRY];
 
@@ -83,13 +79,68 @@ void LOG(LOG_BLOCK lb, int loglevel, const char *format, ...)
       msg.payload[i] = buffer[i];
     }
 
-    msg.checksum = tcpHandle->getChecksum(&msg);
+    msg.checksum = getMsgChecksum(&msg);
 
-    // send only to port debug
-    tcpHandle->deliverSerial(msg, PORTDEBUG);
+    // send only to debug port
+    sendMsgToSerial(msg, PORTDEBUG);
   }
 
 #endif
 
 }
 
+uint8_t getMsgChecksum(message_t *m) {
+
+    uint8_t res = 0;
+
+    // for the header
+    res = res ^ m->headerStartMarker;
+    res = res ^ m->length;
+    res = res ^ m->type;
+    res = res ^ 0;//m->port;
+    res = res ^ m->scriptVer;
+
+    // now for the payload
+    for (uint8_t i=0; i<(m->length - PACKET_HEADER_LENGTH); i++) {
+        res = res ^ m->payload[i];
+    }
+
+    return res;
+
+}
+
+void sendMsgToSerial(message_t msgToSend, uint8_t ports) {
+
+  switch (ports) {
+    case ALLPORTS:
+      msgToSend.port = 0;
+      Serial.println((char*)(&msgToSend));
+      msgToSend.port = 1;
+      Serial1.println((char*)(&msgToSend));
+      msgToSend.port = 2;
+      Serial2.println((char*)(&msgToSend));
+      msgToSend.port = 3;
+      Serial3.println((char*)(&msgToSend));
+      msgToSend.port = PORTDEBUG;
+      Serial.println((char*)(&msgToSend));     
+      break;
+    case 0:
+      msgToSend.port = 0;
+      Serial.println((char*)(&msgToSend));       break;
+    case 1:
+      msgToSend.port = 1;
+      Serial1.println((char*)(&msgToSend));      break;
+    case 2:
+      msgToSend.port = 2;
+      Serial2.println((char*)(&msgToSend));      break;
+    case 3:
+      msgToSend.port = 3;
+      Serial3.println((char*)(&msgToSend));      break;
+    case PORTDEBUG:
+      msgToSend.port = PORTDEBUG;
+      Serial.println((char*)(&msgToSend));
+    default:
+      break;
+  };
+
+}

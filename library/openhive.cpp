@@ -34,14 +34,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tcp.h"
 //#include "wdt.h"
 
-// TCP handle used for Logging
-TCP* tcpHandle;
-
 void OpenHive::setup()
 {
 	InitLogging();
 	LOG(LOG_PRINT,1,"OpenHive Setup");
-	tcpHandle = new TCP();
+	tcpHandler = new TCP(&mainState);
 	ledstate = 0;
 }
 
@@ -65,12 +62,12 @@ void OpenHive::loop()
     if ((millis() - mainState.lastEventImport) > IMPORT_PERIOD) {
 
         // TODO !
-        tcpHandle->import();
+        tcpHandler->import();
         mainState.lastEventImport = millis();
     }
 
     // the actual execution
-    if (transportState.gotScript) {
+    if ((tcpHandler->getTCP_State()).gotScript) {
         if ((millis() - mainState.lastEventExecute) >= EXECUTE_PERIOD) {
 
             // led heartbit
@@ -80,7 +77,7 @@ void OpenHive::loop()
             executeCode();
 
             // if needed send back the signal value
-            tcpHandle->sendSignalValue();
+            tcpHandler->sendSignalValue();
 
             mainState.lastEventExecute = millis();
             // increment the global tick
@@ -89,12 +86,12 @@ void OpenHive::loop()
     }
 
     // ask for script when a new version has been seen
-    if (transportState.askForFile == 1) {
+    if ((tcpHandler->getTCP_State()).askForFile == 1) {
         if ((millis() - mainState.lastEventAskFile) >= ASK_FOR_SCRIPT_PERIOD) {
             // ask for a script only when a new script has been seen
-            if (tcpHandle->isScriptVerLarger(mainState.newScriptVer, mainState.scriptVer)) {
+            if (tcpHandler->isScriptVerLarger(mainState.newScriptVer, mainState.scriptVer)) {
                 LOG(LOG_TRANSP,2,"Asking for script: %d",mainState.newScriptVer);
-                tcpHandle->askForFile();
+                tcpHandler->askForFile();
             }
             mainState.lastEventAskFile = millis();
         }
@@ -104,7 +101,7 @@ void OpenHive::loop()
     if ((millis() - mainState.lastEventBeacon) >= BEACON_PERIOD) {
         // beacon only if there's a script on the node
         if (mainState.scriptVer > 0) {
-            tcpHandle->beacon();
+            tcpHandler->beacon();
         }
         mainState.lastEventBeacon = millis();
     }
@@ -112,7 +109,34 @@ void OpenHive::loop()
 }
 
 void OpenHive::executeCode(void) {
+    uint16_t blockNo;
 
+    if ((tcpHandler->getTCP_State()).gotScript) {
+
+        LOG(LOG_MAIN, 1, "tick %d start. ver: %d, rel: %d, MT: %d, DT: %d", mainState.tick, mainState.scriptVer, mainState.releaseLevel, mainState.maxExecutionTime, (mainState.maxExecutionTime * 1000 - millis()));
+        LOG(LOG_MAIN, 2, "#blocks: %d", *script->nblocks);
+    
+        for (uint16_t i=0; i<*script->nblocks; ++i) {  
+        
+            LOG(LOG_MAIN,  2,"start. blck nr:%d type:%d stateType:%d",i, script->blockTypes[i], script->blockStateType[i]);
+            
+            if (script->blockStateType[i] == BT_ALGO) {
+                LOG(LOG_MAIN, 2,"algo exec");
+                script->blocks[i].in(i);
+                script->blocks[i].step(i);
+                script->blocks[i].out(i);
+            } else {
+                LOG(LOG_MAIN, 2,"nonstate exec");
+                script->blocks[i].out(i);
+            }
+
+            LOG(LOG_MAIN,2,"stop. block exec.");
+        }
+      
+        tcpHandler->exportState(script);
+        
+        LOG(LOG_MAIN,  1, "tick %d end. code ver: %d", mainState.tick, mainState.scriptVer);
+    }
 }
 
 void OpenHive::toggleled(void) {

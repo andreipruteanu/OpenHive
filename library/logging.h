@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdarg.h>
 
+// the log markers for every module
 typedef enum LOG_BLOCK_type {
   LOG_ACTUATOR,
   LOG_ABS,
@@ -89,8 +90,16 @@ typedef enum LOG_BLOCK_type {
   LOG_LASTENTRY
 } LOG_BLOCK;
 
+// init logging constants
 void InitLogging(void);
+
+// the actual log function
 void LOG(LOG_BLOCK lb, int loglevel, const char *format, ...);
 
+// compute checksum of the serial msg
+uint8_t getMsgChecksum(message_t *m);
+
+// send msg to the serial port
+void sendMsgToSerial(message_t, uint8_t);
 
 #endif

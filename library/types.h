@@ -478,7 +478,7 @@ typedef struct {
     uint8_t gotInputMsgs;
     uint8_t askForFile;
     uint8_t hasDefaultScript;
-} transportState_t;
+} tcpState_t;
 
 #define BUFFER_SIZE (5*MSG_LENGTH)
 

@@ -32,11 +32,38 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __tcp_h
 
 #include "types.h"
+#include "queue.h"
 
 class TCP {
 private:
+
+	// msg queue
+	Queue* queues[SERIAL_PORT_COUNT];
+
+	// the state of the transport protocol
+	tcpState_t tcpState;
+
+	// pointer to the main state
+	mainState_t* mainState;
+
 protected:
+
 public:
+	/**
+ 	 * constructor
+	 **/
+	TCP(mainState_t* _mainState);
+
+	/**
+ 	 * destructor
+	 **/
+	~TCP(void);
+
+	/**
+ 	 * get access to the TCP state
+	 **/
+	tcpState_t getTCP_State(void);
+
 	/**
  	 * import state & script from the neighbours
 	 **/
@@ -45,7 +72,7 @@ public:
 	/**
      * export state to the neighbours
 	 **/
-	void exportState(void);
+	void exportState(script_t* script);
 
 	/**
  	 * send a char(uint8_t) data buffer without retransmission
@@ -91,12 +118,6 @@ public:
 	void beacon(void);
 
 	/**
-	 * compute the checksum for the message payload
-	**/
-	uint8_t getChecksum(message_t*);
-	void deliverSerial(message_t, uint8_t);
-
-	/**
 	 * process the incoming script msg
 	**/
 	void processIncomingScriptMsg(message_t *msg, uint8_t portId);
@@ -111,15 +132,6 @@ public:
 	**/
 	void cleanupTCPstate(void);
 
-	void startUSARTInt0();
-	void stopUSARTInt0();
-	void startUSARTInt1();
-	void stopUSARTInt1();
-	void startUSARTInt2();
-	void stopUSARTInt2();
-	void startUSARTInt3();
-	void stopUSARTInt3();
-
 	void copyUartData();
 	void startUARTInt();
 	void stopUARTInt();
@@ -131,6 +143,8 @@ public:
 
 	// sends signal values around
 	void sendSignalValue(void);
+
+	void deallocateNewFile(void);
 };
 
 #endif
