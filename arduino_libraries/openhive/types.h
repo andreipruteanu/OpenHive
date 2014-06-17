@@ -439,7 +439,17 @@ typedef struct {
     int32_t reportSignalId[4];
     int32_t reportSignalIdPort;
 
+    // lifecycle action
+    uint8_t lifecycleAction;
+
 } mainState_t;
+
+enum {
+    LA_NONE,
+    LA_DEALLOCATE,
+    LA_RESET_NODE,
+    LA_SHOW_STATUS
+};
 
 typedef struct {
     uint8_t p[256];

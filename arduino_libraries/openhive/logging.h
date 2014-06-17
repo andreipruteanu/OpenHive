@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "Arduino.h"
 #include "TCP.h"
+#include "types.h"
 #include <stdio.h>
 #include <stdarg.h>
 

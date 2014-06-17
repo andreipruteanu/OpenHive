@@ -144,7 +144,11 @@ public:
 	// sends signal values around
 	void sendSignalValue(void);
 
+	void sendScriptVersion(void);
+
 	void deallocateNewFile(void);
+
+	void sendFirmwareVersion(void);
 };
 
 #endif

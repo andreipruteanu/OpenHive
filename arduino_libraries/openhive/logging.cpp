@@ -36,9 +36,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 uint8_t debuglevel[LOG_LASTENTRY];
 
 void InitLogging() {
-
-
-
     // init all entries to 0
     for (int i=0;i<LOG_LASTENTRY;i++) {
       debuglevel[i] = 0;

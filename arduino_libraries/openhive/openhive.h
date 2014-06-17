@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class OpenHive {
 private:
+
 	// the script that is going to be executed
 	script_t* script;
 
@@ -57,6 +58,9 @@ public:
 	void loop(void);
 	void executeCode(void);
 	void toggleled(void);
+	void showStatus(void);
+	void deallocate(void);
+	void resetNode(void);
 };
 
 #endif

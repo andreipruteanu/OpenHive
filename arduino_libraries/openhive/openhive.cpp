@@ -57,6 +57,20 @@ void OpenHive::loop()
     //  mainState.lastServoEvent = millis();
     //}
 
+    // check lifecycle actions to be executed
+    switch (mainState.lifecycleAction) {
+        case LA_DEALLOCATE:
+            deallocate();
+            break;
+        case LA_RESET_NODE:
+            resetNode();
+            break;
+        case LA_SHOW_STATUS:
+            showStatus();
+            break;
+        default:
+            break;
+    }
 
     // check the uart port for data
     if ((millis() - mainState.lastEventImport) > IMPORT_PERIOD) {
@@ -143,4 +157,18 @@ void OpenHive::toggleled(void) {
   ledstate = 1 - ledstate;
   digitalWrite(blinkingLed, ledstate);
 }
+
+void OpenHive::deallocate(void) {
+
+}
+
+void OpenHive::resetNode(void) {
+
+}
+
+void OpenHive::showStatus(void) {
+
+}
+
+
 

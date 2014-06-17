@@ -32,6 +32,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "logging.h"
 #include "types.h"
 
+extern uint8_t debuglevel[LOG_LASTENTRY];
+
 TCP::TCP(mainState_t* _mainState) {
 	mainState = _mainState;
 
@@ -226,8 +228,23 @@ uint8_t TCP::sendBuffer(uint8_t *buffer, uint32_t bufferLength, uint32_t blockNo
     sendMsgToSerial(msgToSend, ports);
 }
 
-uint8_t TCP::sendPacket(uint8_t*, uint32_t, uint8_t, uint8_t) {
+uint8_t TCP::sendPacket(uint8_t* buffer, uint32_t bufferLength, uint8_t type, uint8_t ports) {
+    // format data to send
+    message_t msgToSend;
+    msgToSend.type              = type;    
+    msgToSend.headerStartMarker = HEADER_START_MARKER; 
+    msgToSend.length            = bufferLength + PACKET_HEADER_LENGTH;
+    msgToSend.scriptVer         = mainState->scriptVer;
 
+    for (uint8_t i=0; i<bufferLength; i++) {
+        msgToSend.payload[i] = buffer[i];
+    }
+
+    // insert checksum
+    msgToSend.checksum = getMsgChecksum(&msgToSend);
+
+    // send packet to all selected ports
+    sendMsgToSerial(msgToSend, ports);
 }
 
 /**
@@ -238,8 +255,71 @@ uint8_t TCP::sendPacket(uint8_t*, uint32_t, uint8_t, uint8_t) {
  * @param last packet received by requesting node
  * @param output ports
  **/
-uint8_t TCP::unicastFilePkt(uint8_t*,uint16_t,int16_t,uint8_t) {
+uint8_t TCP::unicastFilePkt(uint8_t *buffer, uint16_t bufferLength, int16_t pkindex, uint8_t portId) {
+    if (portId == ALLPORTS) {
+        // unicast script to all ports???
+        LOG(LOG_TRANSP, 2, "unicast script to all ports?");
+        return -1;
+    }
 
+    uint16_t sentbytes = 0;
+    uint16_t lengthtosend;
+    int16_t packetindex = 0;
+    uint16_t nrpackets;
+    uint16_t payloadSize;
+    uint16_t headerSize;
+
+    nrpackets   = ceil((float)bufferLength / SCRIPTPAYLOADSIZE);
+    headerSize  = SCRIPT_HEADER_LENGTH + PACKET_HEADER_LENGTH;
+    payloadSize = SCRIPTPAYLOADSIZE;
+
+    LOG(LOG_TRANSP, 1, "-- script size: %d", bufferLength);
+    LOG(LOG_TRANSP, 1, "-- number of packets: %d", nrpackets);
+
+    while (sentbytes < bufferLength) {
+
+        // do we have a full packet to send?
+        if ((bufferLength - sentbytes) >= SCRIPTPAYLOADSIZE) {      
+            lengthtosend = payloadSize;
+        } else {
+            lengthtosend = bufferLength - sentbytes;
+        }
+
+        if (packetindex > pkindex) {
+
+            // format data to send
+            message_t msgToSend;
+            msgToSend.headerStartMarker = HEADER_START_MARKER; 
+            msgToSend.length            = lengthtosend + headerSize;
+            msgToSend.type              = MSG_SCRIPT;
+            msgToSend.port = portId;
+
+            scriptmessage_t *tempscriptmsg = (scriptmessage_t *)msgToSend.payload;
+            tempscriptmsg->packetindex          = packetindex;
+            tempscriptmsg->nrpackets            = nrpackets;
+            tempscriptmsg->usedPayloadSize      = lengthtosend;
+	        
+            //copy a piece of the buffer into the pkt payload
+            for (uint16_t i=0; i<lengthtosend; i++) {
+                tempscriptmsg->payload[i] = buffer[sentbytes + i];
+            }
+
+            // mark the msg with the script version
+            msgToSend.scriptVer = mainState->scriptVer;
+
+            // compute and add the checksum
+            msgToSend.checksum = getMsgChecksum(&msgToSend);
+
+            sendMsgToSerial(msgToSend, portId);
+            return 1;
+        }
+
+        // update the remaining segments to send
+        sentbytes   = sentbytes + lengthtosend;
+        packetindex = packetindex + 1;
+    }
+
+    return 1;
 }
 
 /**
@@ -247,8 +327,158 @@ uint8_t TCP::unicastFilePkt(uint8_t*,uint16_t,int16_t,uint8_t) {
  * @param input message
  * @param serial port number
 **/
-void TCP::processReceivedMessage(message_t*, uint8_t serialPortNo) {
+void TCP::processReceivedMessage(message_t *msg, uint8_t portId) {
 
+    LOG(LOG_TRANSP,2,"processing rcv type:%d port:%d",msg->type, portId);
+
+    switch (msg->type) {
+
+        case MSG_SCRIPT:
+            LOG(LOG_TRANSP,3,"got script msg, asking: %d",tcpState.askForFile);
+            // accept only msgs belonging to the new script
+            if (tcpState.askForFile && (msg->scriptVer == mainState->newScriptVer)) {
+                LOG(LOG_TRANSP,3,"proc. msg, ver:%d, mine: %d",msg->scriptVer,mainState->newScriptVer);
+                processIncomingScriptMsg(msg, portId);
+            } else {
+                LOG(LOG_TRANSP,3,"!proc msg, ver:%d, mine: %d",msg->scriptVer,mainState->newScriptVer);               
+            }
+            break;
+
+        case MSG_NBR_STATE: 
+            {
+                if (tcpState.gotScript && (msg->scriptVer == mainState->scriptVer)) {
+                    LOG(LOG_TRANSP,3,"proc nbr state. nbr ver: %d, my ver: %d",msg->scriptVer, mainState->scriptVer);
+                    nbrStateMessage_t nbrStateMsg;
+                    nbrStateMsg.blockId = msg->payload[0] + (msg->payload[1] << 8); 
+                    nbrStateMsg.portrcv = portId;
+                    nbrStateMsg.portsnd = msg->port;
+                    nbrStateMsg.payload = &msg->payload[4];
+
+                    feedNbrStateMsgToAlgo(&nbrStateMsg);
+                }
+            } 
+            break;
+
+        case MSG_NEED_SCRIPT:
+            LOG(LOG_TRANSP, 1, "--- received script request");
+            if (tcpState.gotScript) {
+                if (msg->payload[2] == mainState->scriptVer) {
+                    // extract packet index
+                    int16_t pkindex = 0;
+                    pkindex = (msg->payload[0] << 8) + msg->payload[1] - 1;
+                    LOG(LOG_TRANSP, 1, "-- began exporting script %d (pkt %d)",mainState->scriptVer,pkindex);
+                    unicastFilePkt(tcpState.file, tcpState.fileSize, pkindex, portId);
+                    LOG(LOG_TRANSP, 1, "-- done exporting script");
+                } else {
+                    LOG(LOG_TRANSP, 1, "script req issue: mine:%d, req:%d",mainState->scriptVer,msg->payload[2]);
+                }
+            }
+            break;
+
+        case MSG_DEALLOC:
+            LOG(LOG_TRANSP,1,"received dealloc msg");
+            LOG(LOG_PRINT,1,"!!! deallocating !!!!");
+            mainState->lifecycleAction = LA_DEALLOCATE; // trigger "deallocate" action
+            break;
+
+        case MSG_REBOOT:
+            LOG(LOG_TRANSP,1,"received reboot msg");
+            LOG(LOG_PRINT,1,"!!! rebooting !!!!");
+            mainState->lifecycleAction = LA_RESET_NODE; // trigger "reset" action
+            break;
+            
+        case MSG_STATUS:
+            LOG(LOG_TRANSP,1,"received show status req msg");
+            mainState->lifecycleAction = LA_SHOW_STATUS; // trigger "show status ()" action
+            break;
+
+        case MSG_INFO:
+            LOG(LOG_TRANSP, 2,"received log msg. ignoring.");
+            break;
+            
+        case MSG_BEACON:
+            LOG(LOG_TRANSP, 2,"received beacon msg. ignoring.");
+            break;
+
+        case MSG_SEND_SCRIPT_VER:
+            LOG(LOG_TRANSP,2,"sending script ver");
+            sendScriptVersion();
+            break;
+
+        case MSG_SCRIPT_VER:
+            uint8_t scriptVer;
+            scriptVer = msg->payload[0];
+            LOG(LOG_TRANSP,2,"received script ver: %d",scriptVer);
+            break;
+
+        case MSG_SEND_FIRM_VER:
+            LOG(LOG_TRANSP,2,"sending firmware version");
+            sendFirmwareVersion();
+            break;
+
+        case MSG_FIRM_VER:
+            {
+                uint8_t i;
+                uint32_t firmVer;
+
+                // extract payload: {id (1 byte) - value (1 byte)}, ...
+                uint8_t payloadSize = msg->length - PACKET_HEADER_LENGTH;
+
+                uint8_t payload[payloadSize];
+
+                for (i=0; i<payloadSize; ++i) {
+                    payload[i] = msg->payload[i];
+                }
+
+                firmVer = *(uint32_t *)&payload;
+                LOG(LOG_TRANSP,2,"nbr has firmware version: %ld",firmVer);
+            }
+            break;
+
+        case MSG_LOGLEVEL:
+            LOG(LOG_TRANSP, 2,"received loglevel msg");
+            {
+                uint32_t i;
+
+                // extract payload: {id (1 byte) - value (1 byte)}, ...
+                uint32_t payloadsize = msg->length - PACKET_HEADER_LENGTH;
+
+                for (i=0; i<payloadsize; ++i) {
+                    // read id
+                    uint8_t id = msg->payload[i];
+
+                    // read value
+                    ++i;
+                    uint8_t val = msg->payload[i];
+
+                    // dummy test
+                    if (id >= LOG_LASTENTRY) {
+                        LOG(LOG_TRANSP, 1,"loglevel value exceeds maximum limit");
+                    } else {
+                        // modify logging variable
+                        debuglevel[id] = val;
+                    }
+                }
+            }
+            break;
+
+        case MSG_GET_SIGNAL:
+            mainState->reportSignalId[0] = (int32_t)((msg->payload[0]<<24)  + (msg->payload[1]<<16)  + (msg->payload[2]<<8)  + msg->payload[3]);
+            mainState->reportSignalId[1] = (int32_t)((msg->payload[4]<<24)  + (msg->payload[5]<<16)  + (msg->payload[6]<<8)  + msg->payload[7]);
+            mainState->reportSignalId[2] = (int32_t)((msg->payload[8]<<24)  + (msg->payload[9]<<16)  + (msg->payload[10]<<8) + msg->payload[11]);
+            mainState->reportSignalId[3] = (int32_t)((msg->payload[12]<<24) + (msg->payload[13]<<16) + (msg->payload[14]<<8) + msg->payload[15]);
+            mainState->reportSignalIdPort = portId;
+            LOG(LOG_TRANSP, 2,"msg signal: %ld %ld %ld %ld", mainState->reportSignalId[0], mainState->reportSignalId[1], mainState->reportSignalId[2], mainState->reportSignalId[3]);
+            break;
+            
+        case MSG_SEND_SIGNAL:
+            LOG(LOG_TRANSP, 2,"received signal value message. ignoring.");
+            break;
+
+        default:
+            LOG(LOG_TRANSP, 2,"un-recognised pkt type: %d.",msg->type);
+            break;
+    }
 }
 
 /**
@@ -332,4 +562,31 @@ void TCP::deallocateNewFile(void) {
     initQueues();
 }
 
+// send the current script version
+void TCP::sendScriptVersion(void)
+{
+    uint8_t payload[1];
+    payload[0] = mainState->scriptVer;
+    if (!sendPacket(payload,1,MSG_SCRIPT_VER,ALLPORTS)) {
+        LOG(LOG_TRANSP,2,"Failed sending script version");
+    }
+}
+
+// send the current firmware version
+void TCP::sendFirmwareVersion(void)
+{
+    uint8_t payload[4];
+    
+    payload[0] =  mainState->firmVer        & 0xff;
+    payload[1] = (mainState->firmVer >> 8)  & 0xff;
+    payload[2] = (mainState->firmVer >> 16) & 0xff;
+    payload[3] = (mainState->firmVer >> 24) & 0xff;
+    
+    //*((uint8_t*)payload) = mainState.firmVer;
+    LOG(LOG_TRANSP, 2, "Sending firmVer: %ld", mainState->firmVer);
+
+    if (!sendPacket(payload, 4, MSG_FIRM_VER, ALLPORTS)) {
+        LOG(LOG_TRANSP,2,"Failed sending firmware version");
+    }
+}
 
