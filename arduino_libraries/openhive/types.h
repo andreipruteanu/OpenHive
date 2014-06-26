@@ -153,55 +153,57 @@ typedef struct {
 
 /**
  * the time interval between export state actions
-**/
+ **/
 #define EXPORT_STATE_PERIOD 500
 
 /**
  * the time interval between export SCRIPT actions
-**/
+ **/
 #define ASK_FOR_SCRIPT_PERIOD 500
 
 /**
  * the time intervals between cleaning the TCP state
-**/
+ **/
 #define TCP_CLEANUP_PERIOD IMPORT_PERIOD
 
 /**
  * the time interval after which the TCP state expires
-**/
+ **/
 #define TCP_EXPIRE_TIME EXPORT_STATE_PERIOD * 6
 
-
-
+/**
+ * the default script size: in case there should be a default script on the nodes
+ **/
+#define DEFAULT_SCRIPT_SIZE 0
 
 /**
  * define the header start marker
-**/
+ **/
 #define HEADER_START_MARKER 254
 
 /**
  * serial sampling frequency in Hz
-**/
+ **/
 #define SERIAL_SAMPLING_FREQ 20
 
 /**
  * the incoming message queue length
-**/
+ **/
 #define MSG_QUEUE_PKT_SIZE 10
 
 /**
  * the size of the message queue in bytes
-**/
+ **/
 #define MSG_QUEUE_SIZE ((MSG_QUEUE_PKT_SIZE * MSG_LENGTH) + 1)
 
 /**
  * the dummy value used for having 4 bytes in the header
-**/
+ **/
 #define DUMMY_VALUE 5
 
 /**
  * \def size of execution round
-**/
+ **/
 #define EXECUTE_PERIOD 200
 
 
@@ -246,10 +248,6 @@ typedef struct {
 **/
 #define WDT_PERIOD 5000
 
-/**
- * board clock frequency - taken from ./sam/boards/sam3u_ek/sam3u_ek.h:62
- */
-#define BOARD_FREQ_SLCK_XTAL            (32768U)
 
 /**
  * \struct generic packet structure
@@ -406,7 +404,7 @@ typedef struct {
     uint8_t eventImport;
     uint32_t lastEventImport;
     uint32_t lastEventExecute;
-    uint32_t lastEventAskFile;
+    uint32_t lastEventAskScript;
     uint32_t lastEventBeacon;
     uint32_t lastEventWDTRestart;
     uint32_t lastServoEvent;
@@ -475,18 +473,13 @@ typedef struct {
  * \struct defines the transport protocol state
 **/
 typedef struct {
-    uint32_t timeLastFilePkt;
-    uint32_t timeFileReceived;
+    uint32_t timeLastScriptPkt;
+    uint32_t timeScriptReceived;
     uint32_t prevTCPevent;
-    uint16_t fileSize;
-    uint16_t newFileSize;
-    int16_t prevFilePktIdx;
-    uint8_t* file;
-    uint8_t* newFile;
-    uint8_t gotScript;
-    uint8_t gotTest;
+    int16_t prevScriptPktIdx;
+    uint8_t gotScript;    
     uint8_t gotInputMsgs;
-    uint8_t askForFile;
+    uint8_t askForScript;
     uint8_t hasDefaultScript;
 } tcpState_t;
 

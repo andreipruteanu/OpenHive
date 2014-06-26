@@ -33,12 +33,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "types.h"
 #include "queue.h"
+#include "script.h"
 
 class TCP {
 private:
 
-	// msg queue
+	// msg queue for the serial ports
 	Queue* queues[SERIAL_PORT_COUNT];
+
+	// script object
+	Script* scriptHandler;
 
 	// the state of the transport protocol
 	tcpState_t tcpState;
@@ -52,7 +56,7 @@ public:
 	/**
  	 * constructor
 	 **/
-	TCP(mainState_t* _mainState);
+	TCP(mainState_t* _mainState, Script* _scriptHandler);
 
 	/**
  	 * destructor
@@ -72,7 +76,7 @@ public:
 	/**
      * export state to the neighbours
 	 **/
-	void exportState(script_t* script);
+	void exportState(void);
 
 	/**
  	 * send a char(uint8_t) data buffer without retransmission
@@ -93,7 +97,7 @@ public:
  	 * @param last packet received by requesting node
  	 * @param output ports
 	 **/
-	uint8_t unicastFilePkt(uint8_t*,uint16_t,int16_t,uint8_t);
+	uint8_t unicastScriptPkt(uint16_t,uint8_t);
 
 	/**
 	 * process a received message
@@ -105,12 +109,12 @@ public:
 	/**
 	 * setup the algorithm
 	**/
-	void initTransport(void);
+	void initTCP(void);
 
 	/**
 	 * ask for a Script script
 	**/
-	void askForFile(void);
+	void askForScript(void);
 
 	/**
 	 * beacon a dummy message
@@ -132,10 +136,6 @@ public:
 	**/
 	void cleanupTCPstate(void);
 
-	void copyUartData();
-	void startUARTInt();
-	void stopUARTInt();
-
 	void initQueues(void);
 
 	// comparison between two script versions
@@ -146,9 +146,10 @@ public:
 
 	void sendScriptVersion(void);
 
-	void deallocateNewFile(void);
+	void resetTCPState(void);
 
 	void sendFirmwareVersion(void);
 };
 
 #endif
+

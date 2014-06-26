@@ -32,14 +32,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "types.h"
 #include "Logging.h"
 #include "tcp.h"
+#include <malloc.h>
 //#include "wdt.h"
 
 void OpenHive::setup()
 {
 	InitLogging();
 	LOG(LOG_PRINT,1,"OpenHive Setup");
-	tcpHandler = new TCP(&mainState);
-	ledstate = 0;
+    script     = new Script(&mainState);
+	tcpHandler = new TCP(&mainState,script);
+    
+	ledstate   = 0;
 }
 
 void OpenHive::loop()
@@ -72,6 +75,9 @@ void OpenHive::loop()
             break;
     }
 
+    // return to lifecycle "none" action
+    mainState.lifecycleAction = LA_NONE;
+
     // check the uart port for data
     if ((millis() - mainState.lastEventImport) > IMPORT_PERIOD) {
 
@@ -100,14 +106,14 @@ void OpenHive::loop()
     }
 
     // ask for script when a new version has been seen
-    if ((tcpHandler->getTCP_State()).askForFile == 1) {
-        if ((millis() - mainState.lastEventAskFile) >= ASK_FOR_SCRIPT_PERIOD) {
+    if ((tcpHandler->getTCP_State()).askForScript == 1) {
+        if ((millis() - mainState.lastEventAskScript) >= ASK_FOR_SCRIPT_PERIOD) {
             // ask for a script only when a new script has been seen
             if (tcpHandler->isScriptVerLarger(mainState.newScriptVer, mainState.scriptVer)) {
                 LOG(LOG_TRANSP,2,"Asking for script: %d",mainState.newScriptVer);
-                tcpHandler->askForFile();
+                tcpHandler->askForScript();
             }
-            mainState.lastEventAskFile = millis();
+            mainState.lastEventAskScript = millis();
         }
     }
 
@@ -128,26 +134,26 @@ void OpenHive::executeCode(void) {
     if ((tcpHandler->getTCP_State()).gotScript) {
 
         LOG(LOG_MAIN, 1, "tick %d start. ver: %d, rel: %d, MT: %d, DT: %d", mainState.tick, mainState.scriptVer, mainState.releaseLevel, mainState.maxExecutionTime, (mainState.maxExecutionTime * 1000 - millis()));
-        LOG(LOG_MAIN, 2, "#blocks: %d", *script->nblocks);
+        LOG(LOG_MAIN, 2, "#blocks: %d", script->getBlockCount());
     
-        for (uint16_t i=0; i<*script->nblocks; ++i) {  
+        for (uint16_t i=0; i < script->getBlockCount(); ++i) {  
         
-            LOG(LOG_MAIN,  2,"start. blck nr:%d type:%d stateType:%d",i, script->blockTypes[i], script->blockStateType[i]);
+            LOG(LOG_MAIN,  2,"start. blck nr:%d type:%d stateType:%d",i, (script->getBlockTypes())[i], (script->getBlockStateTypes())[i]);
             
-            if (script->blockStateType[i] == BT_ALGO) {
+            if ((script->getBlockStateTypes())[i] == BT_ALGO) {
                 LOG(LOG_MAIN, 2,"algo exec");
-                script->blocks[i].in(i);
-                script->blocks[i].step(i);
-                script->blocks[i].out(i);
+                ((script->getBlocks())[i]).in(i);
+                ((script->getBlocks())[i]).step(i);
+                ((script->getBlocks())[i]).out(i);
             } else {
                 LOG(LOG_MAIN, 2,"nonstate exec");
-                script->blocks[i].out(i);
+                ((script->getBlocks())[i]).out(i);
             }
 
             LOG(LOG_MAIN,2,"stop. block exec.");
         }
       
-        tcpHandler->exportState(script);
+        tcpHandler->exportState();
         
         LOG(LOG_MAIN,  1, "tick %d end. code ver: %d", mainState.tick, mainState.scriptVer);
     }
@@ -160,6 +166,72 @@ void OpenHive::toggleled(void) {
 
 void OpenHive::deallocate(void) {
 
+    if ((tcpHandler->getTCP_State()).gotScript) {
+        LOG(LOG_DEAL,1,"Started de-allocating");
+
+        // set the gotScript flag to false
+        (tcpHandler->getTCP_State()).gotScript = 0;       
+
+        uint16_t i=0;
+
+        // deallocate the state of the blocks
+        for (i=0; i < script->getBlockCount(); ++i) {  
+            if ((script->getBlockStateTypes())[i] != BT_SIMPLE) {
+                LOG(LOG_DEAL,2,"deal block %d",i);
+                (script->getBlocks())[i].deal(i);
+            }
+        }
+
+        // de-allocate the signals
+        script->deallocateSignals();
+
+        // de-allocate input and output mapping in the script
+        script->deallocatePorts();
+
+        // de-allocate blocks 
+        script->deallocateBlocks();
+
+        // de-allocate block types
+        script->deallocateBlockTypes();
+
+        // de-allocate script
+        script->deallocateScriptArray();
+
+        // de-allocate new script
+        script->deallocateNewScriptArray();
+        
+        // initialise the main state
+        initMainState();
+        
+        // initialise the transport protocol state
+        tcpHandler->initTCP();
+
+        // initialize the blocks that have state
+        initBlocks();
+
+        // print malloc stats: - not supported on 8 bit controllers !
+        //struct mallinfo mem;
+        //mem = mallinfo();
+
+        //LOG(LOG_DEAL,1,"Finished de-allocating. Malloc stats:");
+        //LOG(LOG_DEAL,2,"Total free space (bytes): %d",mem.fordblks);
+
+    } else {
+        LOG(LOG_DEAL,1,"No script available. Nothing to de-allocate !");
+    }
+}
+
+void OpenHive::initBlocks(void) {
+    // initialize the blocks that have state
+    LOG(LOG_SCRIPT, 3, "# blocks: %d", script->getBlockCount());
+    
+    for (uint16_t j=0; j<(script->getBlockCount()); ++j) {
+        if ((script->getBlockStateTypes())[j] != BT_SIMPLE) {
+            LOG(LOG_SCRIPT, 3, "block:%d/%d blocktype:%d", j, script->getBlockCount(), (script->getBlockStateTypes())[j]);
+            LOG(LOG_SCRIPT, 3, "init function: %ld", ((script->getBlocks())[j]).init);
+            ((script->getBlocks())[j]).init(j);
+        }
+    }
 }
 
 void OpenHive::resetNode(void) {
@@ -170,5 +242,42 @@ void OpenHive::showStatus(void) {
 
 }
 
+void OpenHive::initMainState(void)
+{
 
+    // define the max debug level: 0 for "release" mode
+    mainState.DEBUG_LEVEL = 255;
 
+    // elapsed time
+    mainState.eventImport         = 0;
+    mainState.lastEventExecute    = 0;
+    mainState.lastEventImport     = 0;
+    mainState.lastEventAskScript  = 0;
+    mainState.lastEventBeacon     = 0;
+    mainState.scriptVer           = 0;
+    mainState.newScriptVer        = 0;
+    mainState.lastServoEvent      = 0;
+
+    // the current tick
+    mainState.tick = 0;
+
+    // set the mem alloc flag to false initially
+    mainState.memAlloc = 0;
+
+    // set the firmware version
+    mainState.firmVer = FIRMWARE_VERSION;
+
+    // set the maximum execution time
+    mainState.maxExecutionTime = MAX_EXECUTION_TIME;
+
+    // set the release level
+    mainState.releaseLevel = RELEASE_LEVEL;
+
+    // initialize the reporting signal value
+    mainState.reportSignalId[0] = -1;
+    mainState.reportSignalId[1] = -1;
+    mainState.reportSignalId[2] = -1;
+    mainState.reportSignalId[3] = -1;
+    mainState.reportSignalIdPort = PORTDEBUG;
+
+}

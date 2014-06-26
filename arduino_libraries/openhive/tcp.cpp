@@ -34,8 +34,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 extern uint8_t debuglevel[LOG_LASTENTRY];
 
-TCP::TCP(mainState_t* _mainState) {
+TCP::TCP(mainState_t* _mainState, Script* _scriptHandler) {
 	mainState = _mainState;
+	scriptHandler = _scriptHandler;
 
 	for(uint8_t i = 0; i < SERIAL_PORT_COUNT; i++) {
 		queues[i] = new Queue();
@@ -134,9 +135,8 @@ void TCP::import(void) {
                     LOG(LOG_TRANSP, 3, "Nbr ver: %d. My ver: %d", newMsg.scriptVer, mainState->scriptVer);
                     processReceivedMessage(&newMsg, portId);
                 } else if(isScriptVerLarger(newMsg.scriptVer, mainState->newScriptVer)) {
-                    LOG(LOG_TRANSP, 2, "Got new nbr new ver: %d. Mine is: %d",newMsg.scriptVer,mainState->scriptVer);
-                    deallocateNewFile();
-                    tcpState.askForFile = 1; // ask the new script
+                    LOG(LOG_TRANSP, 2, "Nbr has new ver: %d. Mine is: %d",newMsg.scriptVer,mainState->scriptVer);
+                    resetTCPState();
                     mainState->newScriptVer = newMsg.scriptVer; // record the new script version
                 } else {
                     LOG(LOG_TRANSP, 3, "Ignored old script msg. Ver: %d",newMsg.scriptVer);
@@ -167,13 +167,13 @@ tcpState_t TCP::getTCP_State(void) {
 /**
  * export state to the neighbours
  **/
-void TCP::exportState(script_t* script) {
+void TCP::exportState(void) {
     if (tcpState.gotScript) {
-        for (uint8_t blockNo = 0; blockNo < *script->nblocks; blockNo++) {
-            if (script->blockStateType[blockNo]==BT_ALGO) {
-                uint8_t* blockState = (uint8_t*)(script->blocks[blockNo].state);
-                LOG(LOG_TRANSP, 2,"Export state block %d (size %d)",blockNo, script->blocks[blockNo].stateSize);
-                if (!sendBuffer(blockState, script->blocks[blockNo].stateSize, blockNo, MSG_NBR_STATE, ALLPORTS)) {
+        for (uint8_t blockNo = 0; blockNo < (scriptHandler->getBlockCount()); blockNo++) {
+            if ((scriptHandler->getBlockStateTypes())[blockNo] == BT_ALGO) {
+                uint8_t* blockState = (uint8_t*)((scriptHandler->getBlocks())[blockNo].state);
+                LOG(LOG_TRANSP, 2,"Export state block %d (size %d)",blockNo, (scriptHandler->getBlocks())[blockNo].stateSize);
+                if (!sendBuffer(blockState, (scriptHandler->getBlocks())[blockNo].stateSize, blockNo, MSG_NBR_STATE, ALLPORTS)) {
                     LOG(LOG_TRANSP, 2,"Failed exporting state");
                 }
             }
@@ -255,7 +255,7 @@ uint8_t TCP::sendPacket(uint8_t* buffer, uint32_t bufferLength, uint8_t type, ui
  * @param last packet received by requesting node
  * @param output ports
  **/
-uint8_t TCP::unicastFilePkt(uint8_t *buffer, uint16_t bufferLength, int16_t pkindex, uint8_t portId) {
+uint8_t TCP::unicastScriptPkt(uint16_t pkindex, uint8_t portId) {
     if (portId == ALLPORTS) {
         // unicast script to all ports???
         LOG(LOG_TRANSP, 2, "unicast script to all ports?");
@@ -268,6 +268,7 @@ uint8_t TCP::unicastFilePkt(uint8_t *buffer, uint16_t bufferLength, int16_t pkin
     uint16_t nrpackets;
     uint16_t payloadSize;
     uint16_t headerSize;
+    uint16_t bufferLength = scriptHandler->getScriptSize();
 
     nrpackets   = ceil((float)bufferLength / SCRIPTPAYLOADSIZE);
     headerSize  = SCRIPT_HEADER_LENGTH + PACKET_HEADER_LENGTH;
@@ -301,7 +302,7 @@ uint8_t TCP::unicastFilePkt(uint8_t *buffer, uint16_t bufferLength, int16_t pkin
 	        
             //copy a piece of the buffer into the pkt payload
             for (uint16_t i=0; i<lengthtosend; i++) {
-                tempscriptmsg->payload[i] = buffer[sentbytes + i];
+                tempscriptmsg->payload[i] = (scriptHandler->getScriptArray())[sentbytes + i];
             }
 
             // mark the msg with the script version
@@ -334,9 +335,9 @@ void TCP::processReceivedMessage(message_t *msg, uint8_t portId) {
     switch (msg->type) {
 
         case MSG_SCRIPT:
-            LOG(LOG_TRANSP,3,"got script msg, asking: %d",tcpState.askForFile);
+            LOG(LOG_TRANSP,3,"got script msg, asking: %d",tcpState.askForScript);
             // accept only msgs belonging to the new script
-            if (tcpState.askForFile && (msg->scriptVer == mainState->newScriptVer)) {
+            if (tcpState.askForScript && (msg->scriptVer == mainState->newScriptVer)) {
                 LOG(LOG_TRANSP,3,"proc. msg, ver:%d, mine: %d",msg->scriptVer,mainState->newScriptVer);
                 processIncomingScriptMsg(msg, portId);
             } else {
@@ -367,7 +368,7 @@ void TCP::processReceivedMessage(message_t *msg, uint8_t portId) {
                     int16_t pkindex = 0;
                     pkindex = (msg->payload[0] << 8) + msg->payload[1] - 1;
                     LOG(LOG_TRANSP, 1, "-- began exporting script %d (pkt %d)",mainState->scriptVer,pkindex);
-                    unicastFilePkt(tcpState.file, tcpState.fileSize, pkindex, portId);
+                    unicastScriptPkt(pkindex, portId);
                     LOG(LOG_TRANSP, 1, "-- done exporting script");
                 } else {
                     LOG(LOG_TRANSP, 1, "script req issue: mine:%d, req:%d",mainState->scriptVer,msg->payload[2]);
@@ -483,21 +484,31 @@ void TCP::processReceivedMessage(message_t *msg, uint8_t portId) {
 
 /**
  * setup the algorithm
-**/
-void TCP::initTransport(void) {
+ **/
+void TCP::initTCP(void) {
+    initQueues();
+    
+    // initialize script related vars
+    tcpState.prevScriptPktIdx = -1;
+    tcpState.gotScript = 0;
+    tcpState.gotInputMsgs = 0;
+    tcpState.askForScript = 1;
+    tcpState.prevTCPevent = millis();
 
+    // init timers
+    tcpState.prevTCPevent = millis();
 }
 
 /**
  * ask for a Script script
-**/
-void TCP::askForFile(void) {
+ **/
+void TCP::askForScript(void) {
 
 }
 
 /**
  * beacon a dummy message
-**/
+ **/
 void TCP::beacon(void) {
 	uint8_t payload[2];
     if (!sendBuffer(payload,2,0,MSG_BEACON,ALLPORTS)) {
@@ -547,16 +558,11 @@ void TCP::sendSignalValue(void) {
 
 }
 
-// de-allocate the new file
-void TCP::deallocateNewFile(void) {
+// de-allocate the new script
+void TCP::resetTCPState(void) {
 
-    // deallocate new script
-    free(tcpState.newFile);
-    tcpState.newFile = NULL;
-
-    tcpState.prevFilePktIdx = -1;
-    tcpState.askForFile = 1;
-    tcpState.newFileSize = 0;
+    tcpState.prevScriptPktIdx = -1;
+    tcpState.askForScript = 1;
     tcpState.prevTCPevent = millis();
     
     initQueues();
@@ -589,4 +595,7 @@ void TCP::sendFirmwareVersion(void)
         LOG(LOG_TRANSP,2,"Failed sending firmware version");
     }
 }
+
+
+
 

@@ -39,7 +39,7 @@ class OpenHive {
 private:
 
 	// the script that is going to be executed
-	script_t* script;
+	Script* script;
 
 	// the global state of the application
 	mainState_t mainState;
@@ -54,12 +54,15 @@ private:
 	uint8_t ledstate;
 protected:
 public:
+	void initMainState(void);
+	void initBlocks(void);
 	void setup(void);
 	void loop(void);
 	void executeCode(void);
 	void toggleled(void);
 	void showStatus(void);
 	void deallocate(void);
+	void deallocateNewScript(void);
 	void resetNode(void);
 };
 
