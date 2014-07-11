@@ -79,12 +79,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
  * \struct data structure holding info received from a neighboring node
 **/
-typedef struct {
-    uint16_t blockId;                 /**< the block for which this packet is intended for */
-    uint8_t portrcv;
-    uint8_t portsnd;
-    uint8_t *payload;                 /**< payload of the state packet */
-} nbrStateMessage_t;
+    
 
 /**
  * \def number of bytes occupied by header in the nbr packet
@@ -248,6 +243,57 @@ typedef struct {
 **/
 #define WDT_PERIOD 5000
 
+/**
+ * \enum define types of supported blocks
+**/
+enum {
+    SYNC     = 0,            // DONE
+    GRADIENT,                // DONE
+    ALG_TOKEN,               // DONE
+    ALG_RANDOM,              // DONE
+    ADDITION = 20,           // DONE
+    MULTIPLICATION = 21,     // DONE
+    DIVISION = 22,           // DONE
+    SUBSTRACTION,            // DONE
+    NEGATIVE,                // DONE
+    POWER,                   // DONE
+    ABSOLUTE,                // DONE
+    INTDIV,                  // DONE
+    MODULUS,                 // DONE
+    FACTORIAL,               // DONE
+    EQUALITY,                // DONE
+    SIMILARITY,              // DONE
+    SMALLERTHAN,             // DONE
+    LARGERTHAN = 33,         // DONE
+    GATEOR,                  // DONE 
+    GATEAND = 35,            // DONE
+    GATENOT = 36,            // DONE
+    GATEXOR,                 // DONE
+    GATENAND,                // DONE
+    GATENOR,                 // DONE
+    GATEMAJORITY,            // DONE
+    GATEXNOR,                // DONE
+    SIN,                     // DONE
+    SENSOR   = 50,           // DONE
+    ACTUATOR = 52,           // DONE
+    HOLD = 53,               // DONE
+    TICK = 54,               // DONE
+    DELAY = 55,              // DONE
+    HSL2RGB = 58,            // DONE
+    COMBINE = 59,            // DONE
+    SCALE = 60,              // DONE
+    LOGIC = 61,              // DONE
+    FLASHWRITE = 62,         // DONE
+    FLASHREAD = 63,          // DONE
+    LASTBLOCK
+};
+
+// block types
+enum {
+    BT_SIMPLE,
+    BT_STATE,
+    BT_ALGO
+};
 
 /**
  * \struct generic packet structure
@@ -261,8 +307,6 @@ typedef struct {
     uint8_t scriptVer;            /**< the script version */
     uint8_t payload[PAYLOADSIZE]; /**< actual payload */
 } message_t;
-
-
 
 /**
  * \struct data structure holding info received in a script message
@@ -285,7 +329,6 @@ typedef struct {
     float value;                // the recorded value of the signal
     uint8_t status;             // test failed, all tests passed
 } testmessage_t;
-
 
 /**
  * \enum message types for our network
@@ -335,58 +378,6 @@ typedef struct {
 enum wireType {
     WT_SIGNAL,
     WT_CONSTANT
-};
-
-/**
- * \enum define types of supported blocks
-**/
-enum {
-    SYNC     = 0,            // DONE
-    GRADIENT,                // DONE
-    ALG_TOKEN,               // DONE
-    ALG_RANDOM,              // DONE
-    ADDITION = 20,           // DONE
-    MULTIPLICATION = 21,     // DONE
-    DIVISION = 22,           // DONE
-    SUBSTRACTION,            // DONE
-    NEGATIVE,                // DONE
-    POWER,                   // DONE
-    ABSOLUTE,                // DONE
-    INTDIV,                  // DONE
-    MODULUS,                 // DONE
-    FACTORIAL,               // DONE
-    EQUALITY,                // DONE
-    SIMILARITY,              // DONE
-    SMALLERTHAN,             // DONE
-    LARGERTHAN = 33,         // DONE
-    GATEOR,                  // DONE
-    GATEAND = 35,            // DONE
-    GATENOT = 36,            // DONE
-    GATEXOR,                 // DONE
-    GATENAND,                // DONE
-    GATENOR,                 // DONE
-    GATEMAJORITY,            // DONE
-    GATEXNOR,                // DONE
-    SIN,                     // DONE
-    SENSOR   = 50,           // DONE
-    ACTUATOR = 52,           // DONE
-    HOLD = 53,               // DONE
-    TICK = 54,               // DONE
-    DELAY = 55,              // DONE
-    HSL2RGB = 58,            // DONE
-    COMBINE = 59,            // DONE
-    SCALE = 60,              // DONE
-    LOGIC = 61,              // DONE
-    FLASHWRITE = 62,         // DONE
-    FLASHREAD = 63,          // DONE
-    LASTBLOCK
-};
-
-// block types
-enum {
-    BT_SIMPLE,
-    BT_STATE,
-    BT_ALGO
 };
 
 /**
@@ -441,6 +432,16 @@ typedef struct {
     uint8_t lifecycleAction;
 
 } mainState_t;
+
+/**
+ * \struct data structure holding info received from a neighboring node
+**/
+typedef struct {
+    uint16_t blockId;                 /**< the block for which this packet is intended for */
+    uint8_t portrcv;
+    uint8_t portsnd;
+    uint8_t *payload;                 /**< payload of the state packet */
+} nbrStateMessage_t;
 
 enum {
     LA_NONE,

@@ -81,6 +81,10 @@ uint16_t Script::getSignalCount(void) {
     return signalCount;
 }
 
+uint16_t Script::getInitSigsCount(void) {
+    return initSigsCount;
+}
+
 /**
  * report the block types
  **/
@@ -114,6 +118,27 @@ float* Script::getSignals(void) {
  **/    
 ports_t* Script::getPorts(void) {
     return ports;
+}
+
+// return static info about blocks
+const blockinfo_t* Script::getBlockInfo(uint16_t blocktype) {
+  
+  uint16_t i = 0;
+  
+  LOG(LOG_SCRIPT, 3, "blockid: %d", blocktype);
+  
+  while (blockDetails[i].type != LASTBLOCK) {
+  
+    //LOG(LOG_SCRIPT, 4, "typeinstruct:%d", blockDetails[i].type);
+    
+    if (blockDetails[i].type == blocktype) {
+      return &blockDetails[i];
+    }
+    
+    i++;
+  }
+  
+  return NULL;
 }
 
 void Script::deallocateSignals(void) {

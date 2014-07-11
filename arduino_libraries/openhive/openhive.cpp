@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Logging.h"
 #include "tcp.h"
 #include <malloc.h>
+//#include "Actuator.h"
 //#include "wdt.h"
 
 void OpenHive::setup()
@@ -235,11 +236,49 @@ void OpenHive::initBlocks(void) {
 }
 
 void OpenHive::resetNode(void) {
-
+    void(*SoftwareReset)(void) = 0;
 }
 
 void OpenHive::showStatus(void) {
+    //struct mallinfo mem;
+    //mem = mallinfo();
+    LOG(LOG_PRINT,1,"STATUS: Firmware version: %ld", mainState.firmVer);
+    LOG(LOG_PRINT,1,"STATUS: New script version: %ld", mainState.newScriptVer);    
+    LOG(LOG_PRINT,1,"STATUS: Script version: %ld", mainState.scriptVer);
+    LOG(LOG_PRINT,1,"STATUS: tick: %ld", mainState.tick);
+    //LOG(LOG_PRINT,1,"STATUS: Free mem: %d, alloc mem: %d", mem.fordblks, mem.uordblks);
 
+    if ((tcpHandler->getTCP_State()).gotScript) {
+        // read number of blocks - two bytes
+        LOG(LOG_PRINT, 1, "STATUS: nr blocks %d", script->getBlockCount());
+  
+        // read number of signals - two bytes
+        LOG(LOG_PRINT, 1, "STATUS: nr signals %d", script->getSignalCount());
+  
+        // read number of init signals
+        LOG(LOG_PRINT, 1, "STATUS: nr init signals %d", script->getInitSigsCount());
+  
+        // read the blocks themselves
+        for (uint16_t i=0; i < script->getBlockCount(); ++i) {
+          LOG(LOG_PRINT, 1, "STATUS: signal types[%d] = %d", i, (script->getBlockTypes())[i]);
+        }
+        
+        for (uint16_t i=0; i < script->getBlockCount(); ++i) {
+    
+          const blockinfo_t* binfo = script->getBlockInfo((script->getBlockTypes())[i]);
+          LOG(LOG_PRINT, 1, "STATUS: block %d: ninputs:%d noutputs:%d", i, binfo->nin, binfo->nout);
+    
+          for (uint16_t j=0; j< binfo->nin; ++j) {
+            LOG(LOG_PRINT, 1, "STATUS: input %d: %d", j, (script->getPorts())[i].in[j]);
+          }
+          for (uint16_t j=0; j< binfo->nout; ++j) {
+            LOG(LOG_PRINT, 1, "STATUS: output %d: %d", j, (script->getPorts())[i].out[j]);
+          }
+        }
+
+    } else {
+        LOG(LOG_PRINT,1,"STATUS: no script allocated.");
+    }
 }
 
 void OpenHive::initMainState(void)

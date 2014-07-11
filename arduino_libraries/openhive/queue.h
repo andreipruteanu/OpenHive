@@ -38,11 +38,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * \struct the queue structure
 **/
 typedef struct struct_queue_t {
-  uint32_t start;     /**< start pointer */
-  uint32_t stop;      /**< stop pointer */
-  uint32_t size;       /**< size of the queue */
-  uint32_t esize;      /**< size of one element */
-  uint8_t *vals;       /**< buffer with values */
+  uint32_t start;     /**< start pointer       */
+  uint32_t stop;      /**< stop pointer        */
+  uint32_t size;      /**< size of the queue   */
+  uint32_t esize;     /**< size of one element */
+  uint8_t *vals;      /**< buffer with values  */
 } queue_t;
 
 class Queue {
@@ -52,9 +52,14 @@ private:
 public:
 
 	/** 
- 	* Constructor
+ 	* Default constructor
 	**/
 	Queue(void);
+
+	/** 
+ 	* Constructor with parameters
+	**/
+	Queue(uint32_t elementSize, uint16_t elemCount);
 
 	/** 
  	* Destructor

@@ -33,12 +33,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "types.h"
 #include "logging.h"
 
+// default constructor
 Queue::Queue(void) {
     q.vals  = new uint8_t[MSG_QUEUE_SIZE+1];
     q.start = 0;
     q.stop  = 0;
-    q.size  = MSG_QUEUE_SIZE+1;
+    q.size  = MSG_QUEUE_SIZE + 1;
     q.esize = sizeof(uint8_t); // the size of an element
+}
+
+// constructor with parameters
+Queue::Queue(uint32_t elementSize, uint16_t elemCount) {
+    q.vals  = new uint8_t[elemCount + 1];
+    q.start = 0;
+    q.stop  = 0;
+	q.size  = sizeof(elementSize) * elemCount + 1;
+	q.esize = elementSize;
 }
 
 Queue::~Queue(void) {
