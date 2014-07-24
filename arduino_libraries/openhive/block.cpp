@@ -30,19 +30,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "block.h"
 #include "block_gradient.h"
+#include "Logging.h"
 
 // factory design pattern
-Block* Block::makeBlock(uint8_t blockName, uint16_t blockId) {
+Block* Block::makeBlock(mainState_t* mainState_, uint8_t blockName, uint16_t blockId) {
 	
 	Block* retBlock;
 
 	switch (blockName) {
 		case GRADIENT:
-			retBlock = new BlockGradient(blockId);
+			retBlock = new BlockGradient(mainState_, blockId);
 			break;
 		default:
+			LOG(LOG_PRINT,1,"Got unknown block type. Check the binary !\n");
 			break;
 	}
 
 	return retBlock;
+}
+
+Block* Block::operator=(Block const&) {
+	// do something
 }

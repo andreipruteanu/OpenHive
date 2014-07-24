@@ -43,7 +43,10 @@ public:
 	virtual void deallocate(void) = 0;
 
 	// factory design pattern
-	static Block* makeBlock(uint8_t blockName, uint16_t blockId);
+	static Block* makeBlock(mainState_t* mainState_, uint8_t blockName, uint16_t blockId);
+
+	// re-define the '=' operator
+	Block* operator = (Block const&);
 };
 
 #endif

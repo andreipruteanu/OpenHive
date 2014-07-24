@@ -33,8 +33,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Queue.h"
 #include "logging.h"
 
-BlockGradient::BlockGradient(uint16_t blockId_) {
+BlockGradient::BlockGradient(mainState_t* mainState_, uint16_t blockId_) {
 	blockId = blockId_;
+	mainState = mainState_;
 	LOG(LOG_ALGGRAD, 2,"Initializing Gradient Block");
 
 	// initialize the gradient
@@ -52,11 +53,34 @@ void BlockGradient::in(void) {
 }
 
 void BlockGradient::out(void) {
-
+	LOG(LOG_ALGGRAD, 2,"Gradient Out");
+	float* signals = scriptHandler->getSignals();
+	signals[(scriptHandler->getPorts())[blockId].out[0]] = (float)state->hopcount;
 }
 
 void BlockGradient::step(void) {
+    LOG(LOG_ALGGRAD, 2,"Gradient Step");
 
+    if (state->amISource) {
+        state->hopcount = 0;
+        state->gradStart = mainState->tick;
+        LOG(LOG_ALGGRAD, 2,"I am source !!!");
+    } else {
+        uint8_t minNbrGrad = getMinGrad(blockId);
+        uint8_t newHopcount = minNbrGrad + 1;
+        
+        // if new gradient is smaller or equal to MAX_HOPCOUNT, update
+        if (newHopcount <= getMaxHopcount(blockId)) {
+            state->hopcount = newHopcount;
+        } else {
+            state->hopcount = getMaxHopcount(blockId);
+        }
+    }
+
+    // clear (empty) the queue
+    (state->q)->clear();
+
+    LOG(LOG_ALGGRAD, 1,"updated hopcount to: %d", state->hopcount);
 }
 
 void BlockGradient::deallocate(void) {
@@ -68,6 +92,25 @@ void BlockGradient::gradConsumeNbrStateMsg(uint16_t, uint8_t*) {
 }
 
 int32_t BlockGradient::getMaxHopcount(uint16_t id) {
-
+	return state->maxHopcount;
 }
 
+uint32_t BlockGradient::getMinGrad(uint16_t id)
+{
+	uint32_t min = getMaxHopcount(id);
+	uint32_t i;
+
+	for (i=0; i < (state->q)->length(); i++)
+	{
+		hopMsg_t peekMsg;
+		(state->q)->peekElement(i,(uint8_t*)&peekMsg);
+
+		if (peekMsg.hopcount < min) 
+		{
+			min = peekMsg.hopcount;
+		}
+	}
+	LOG(LOG_ALGGRAD, 2,"found min grad=%d",min);
+
+	return min;
+}

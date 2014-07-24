@@ -57,12 +57,15 @@ typedef struct {
 
 class BlockGradient : public Block {
 private:
+	// pointer to the main state
+	mainState_t* mainState;
+
 	gradientState_t* state;
 	// script object
 	Script* scriptHandler;
 	uint16_t blockId;
 public:
-	BlockGradient(uint16_t blockId);
+	BlockGradient(mainState_t*, uint16_t blockId);
 	void in(void);
 	void out(void);
 	void step(void);
@@ -71,6 +74,7 @@ public:
 	// custom algorithm function prototypes
 	void gradConsumeNbrStateMsg(uint16_t, uint8_t*);
 	int32_t getMaxHopcount(uint16_t id);
+	uint32_t getMinGrad(uint16_t id);
 };
 
 #endif

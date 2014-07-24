@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "types.h"
 #include "Logging.h"
 #include "tcp.h"
+#include "block.h"
 #include <malloc.h>
 //#include "Actuator.h"
 //#include "wdt.h"
@@ -41,9 +42,9 @@ void OpenHive::setup()
 	InitLogging();
 	LOG(LOG_PRINT,1,"OpenHive Setup");
     script     = new Script(&mainState);
-	tcpHandler = new TCP(&mainState,script);
+    tcpHandler = new TCP(&mainState,script);
     
-	ledstate   = 0;
+    ledstate   = 0;
 }
 
 void OpenHive::loop()
@@ -136,9 +137,9 @@ void OpenHive::executeCode(void) {
 
         LOG(LOG_MAIN, 1, "tick %d start. ver: %d, rel: %d, MT: %d, DT: %d", mainState.tick, mainState.scriptVer, mainState.releaseLevel, mainState.maxExecutionTime, (mainState.maxExecutionTime * 1000 - millis()));
         LOG(LOG_MAIN, 2, "#blocks: %d", script->getBlockCount());
-    
-        for (uint16_t i=0; i < script->getBlockCount(); ++i) {  
         
+        for (uint16_t i=0; i < script->getBlockCount(); ++i) {  
+            
             LOG(LOG_MAIN,  2,"start. blck nr:%d type:%d stateType:%d",i, (script->getBlockTypes())[i], (script->getBlockStateTypes())[i]);
             
             if ((script->getBlockStateTypes())[i] == BT_ALGO) {
@@ -153,7 +154,7 @@ void OpenHive::executeCode(void) {
 
             LOG(LOG_MAIN,2,"stop. block exec.");
         }
-      
+        
         tcpHandler->exportState();
         
         LOG(LOG_MAIN,  1, "tick %d end. code ver: %d", mainState.tick, mainState.scriptVer);
@@ -227,11 +228,12 @@ void OpenHive::initBlocks(void) {
     LOG(LOG_SCRIPT, 3, "# blocks: %d", script->getBlockCount());
     
     for (uint16_t j=0; j<(script->getBlockCount()); ++j) {
-        if ((script->getBlockStateTypes())[j] != BT_SIMPLE) {
-            LOG(LOG_SCRIPT, 3, "block:%d/%d blocktype:%d", j, script->getBlockCount(), (script->getBlockStateTypes())[j]);
-            LOG(LOG_SCRIPT, 3, "init function: %ld", ((script->getBlocks())[j]).init);
-            ((script->getBlocks())[j]).init(j);
-        }
+        LOG(LOG_SCRIPT, 3, "block:%d/%d blocktype:%d", j, script->getBlockCount(), (script->getBlockStateTypes())[j]);
+
+        uint8_t blockName = (script->getBlockStateTypes())[j];
+
+        // TO DO: re-implement '=' operator
+        //(script->getBlocks())[j] = Block::makeBlock(&mainState, blockName, j);
     }
 }
 
