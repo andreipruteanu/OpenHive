@@ -431,7 +431,7 @@ typedef struct {
     // lifecycle action
     uint8_t lifecycleAction;
 
-} mainState_t;
+} runtimeState_t;
 
 /**
  * \struct data structure holding info received from a neighboring node

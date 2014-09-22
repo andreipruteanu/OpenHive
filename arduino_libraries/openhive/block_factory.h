@@ -28,22 +28,18 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __block_h
-#define __block_h
+#ifndef __block_factory_h
+#define __block_factory_h
 
 #include "types.h"
+#include "block.h"
 
-// abstract class
-class Block {
+// factory design pattern
+class BlockFactory {
 private:
 public:
-	virtual void in(void)         = 0;
-	virtual void out(void)        = 0;
-	virtual void step(void)       = 0;
-	virtual void deallocate(void) = 0;
-
-	// re-define the '=' operator
-	//Block& operator= (Block const &rhs);
+	// create a block object
+	static Block* makeBlock(runtimeState_t* runtimeState_, uint8_t blockName, uint16_t blockId);
 };
 
 #endif

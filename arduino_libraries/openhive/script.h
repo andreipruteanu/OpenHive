@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __script_h
 
 #include "types.h"
+#include "Block.h"
 
 // information about the blocks
 const blockinfo_t blockDetails[] = 
@@ -85,7 +86,7 @@ private:
 
     uint16_t blockCount;
     uint16_t signalCount;
-    block_t*  blocks;
+    Block**  blocks;
     float* signals;
     uint16_t* blockTypes;
     ports_t* ports;
@@ -101,7 +102,7 @@ private:
     uint16_t newScriptArraySize;
 
 	// pointer to the main state
-	mainState_t* mainState;
+	runtimeState_t* runtimeState;
 
 	// 
 	uint8_t defaultScriptArray[DEFAULT_SCRIPT_SIZE];// = {}; // change for default script
@@ -112,7 +113,7 @@ public:
 	/**
  	 * constructor
 	 **/
-	Script(mainState_t* _mainState);
+	Script(runtimeState_t* _runtimeState);
 
 	/**
  	 * destructor
@@ -157,7 +158,7 @@ public:
 	/**
  	 * report blocks
 	 **/
-	block_t* getBlocks(void);
+	Block** getBlocks(void);
 
 	/**
  	 * report signals

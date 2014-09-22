@@ -33,9 +33,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Queue.h"
 #include "logging.h"
 
-BlockGradient::BlockGradient(mainState_t* mainState_, uint16_t blockId_) {
+BlockGradient::BlockGradient(runtimeState_t* runtimeState_, uint16_t blockId_) {
 	blockId = blockId_;
-	mainState = mainState_;
+	runtimeState = runtimeState_;
 	LOG(LOG_ALGGRAD, 2,"Initializing Gradient Block");
 
 	// initialize the gradient
@@ -63,7 +63,7 @@ void BlockGradient::step(void) {
 
     if (state->amISource) {
         state->hopcount = 0;
-        state->gradStart = mainState->tick;
+        state->gradStart = runtimeState->tick;
         LOG(LOG_ALGGRAD, 2,"I am source !!!");
     } else {
         uint8_t minNbrGrad = getMinGrad(blockId);
@@ -113,4 +113,14 @@ uint32_t BlockGradient::getMinGrad(uint16_t id)
 	LOG(LOG_ALGGRAD, 2,"found min grad=%d",min);
 
 	return min;
+}
+
+gradientState_t* BlockGradient::getState(void) 
+{
+  return state;
+}
+
+uint16_t BlockGradient::getStateSize(void) 
+{
+  return sizeof(state);
 }

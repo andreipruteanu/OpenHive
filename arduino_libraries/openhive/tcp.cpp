@@ -31,11 +31,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tcp.h"
 #include "logging.h"
 #include "types.h"
+#include "block_gradient.h"
 
 extern uint8_t debuglevel[LOG_LASTENTRY];
 
-TCP::TCP(mainState_t* _mainState, Script* _scriptHandler) {
-	mainState = _mainState;
+TCP::TCP(runtimeState_t* _runtimeState, Script* _scriptHandler) {
+	runtimeState = _runtimeState;
 	scriptHandler = _scriptHandler;
 
 	for(uint8_t i = 0; i < SERIAL_PORT_COUNT; i++) {
@@ -118,12 +119,12 @@ void TCP::import(void) {
                 LOG(LOG_TRANSP, 1, "Msg len=%d"  , newMsg.length);
                 LOG(LOG_TRANSP, 1, "Port=%d"     , newMsg.port);
                 LOG(LOG_TRANSP, 1, "nbr scriptVer=%d", newMsg.scriptVer);
-                LOG(LOG_TRANSP, 1, "own scriptVer=%d", mainState->scriptVer);
+                LOG(LOG_TRANSP, 1, "own scriptVer=%d", runtimeState->scriptVer);
                 LOG(LOG_TRANSP, 1, "Msg payload = %d %d %d %c%c%c", newMsg.payload[0],newMsg.payload[1],newMsg.payload[2],newMsg.payload[0],newMsg.payload[1],newMsg.payload[2]);
                 
             } else {
-                if (   (newMsg.scriptVer == mainState->scriptVer)    || 
-                       (newMsg.scriptVer == mainState->newScriptVer) || 
+                if (   (newMsg.scriptVer == runtimeState->scriptVer)    || 
+                       (newMsg.scriptVer == runtimeState->newScriptVer) || 
                        (newMsg.type == MSG_NEED_SCRIPT)              || 
                        (newMsg.type == MSG_DEALLOC)                  || 
                        (newMsg.type == MSG_REBOOT)                   || 
@@ -132,12 +133,12 @@ void TCP::import(void) {
                        (newMsg.type == MSG_SEND_SCRIPT_VER)          || 
                        (newMsg.type == MSG_SEND_FIRM_VER)
                    ) {
-                    LOG(LOG_TRANSP, 3, "Nbr ver: %d. My ver: %d", newMsg.scriptVer, mainState->scriptVer);
+                    LOG(LOG_TRANSP, 3, "Nbr ver: %d. My ver: %d", newMsg.scriptVer, runtimeState->scriptVer);
                     processReceivedMessage(&newMsg, portId);
-                } else if(isScriptVerLarger(newMsg.scriptVer, mainState->newScriptVer)) {
-                    LOG(LOG_TRANSP, 2, "Nbr has new ver: %d. Mine is: %d",newMsg.scriptVer,mainState->scriptVer);
+                } else if(isScriptVerLarger(newMsg.scriptVer, runtimeState->newScriptVer)) {
+                    LOG(LOG_TRANSP, 2, "Nbr has new ver: %d. Mine is: %d",newMsg.scriptVer,runtimeState->scriptVer);
                     resetTCPState();
-                    mainState->newScriptVer = newMsg.scriptVer; // record the new script version
+                    runtimeState->newScriptVer = newMsg.scriptVer; // record the new script version
                 } else {
                     LOG(LOG_TRANSP, 3, "Ignored old script msg. Ver: %d",newMsg.scriptVer);
                 }
@@ -171,9 +172,31 @@ void TCP::exportState(void) {
     if (tcpState.gotScript) {
         for (uint8_t blockNo = 0; blockNo < (scriptHandler->getBlockCount()); blockNo++) {
             if ((scriptHandler->getBlockStateTypes())[blockNo] == BT_ALGO) {
-                uint8_t* blockState = (uint8_t*)((scriptHandler->getBlocks())[blockNo].state);
-                LOG(LOG_TRANSP, 2,"Export state block %d (size %d)",blockNo, (scriptHandler->getBlocks())[blockNo].stateSize);
-                if (!sendBuffer(blockState, (scriptHandler->getBlocks())[blockNo].stateSize, blockNo, MSG_NBR_STATE, ALLPORTS)) {
+                // get a pointer to the blocks array
+                Block** blocks = scriptHandler->getBlocks();
+
+                // block state pointer
+                uint8_t* blockState = 0;
+
+                // block state size
+                uint16_t stateSize = 0;
+
+                // decode block name 
+                uint8_t blockName = (scriptHandler->getBlockStateTypes())[blockNo];
+
+                // cast to a specific block type
+                switch (blockName) {
+                    case GRADIENT:
+                        blockState = (uint8_t*) ( (BlockGradient*) (blocks[blockNo]) )->getState();
+                        stateSize  = ( (BlockGradient*) (blocks[blockNo]) )->getStateSize();
+                        break;
+                    default:
+                        break;
+                }
+
+
+                LOG(LOG_TRANSP, 2,"Export state block %d (size %d)", blockNo, stateSize);
+                if (!sendBuffer(blockState, stateSize, blockNo, MSG_NBR_STATE, ALLPORTS)) {
                     LOG(LOG_TRANSP, 2,"Failed exporting state");
                 }
             }
@@ -193,7 +216,7 @@ uint8_t TCP::sendBuffer(uint8_t *buffer, uint32_t bufferLength, uint32_t blockNo
     message_t msgToSend;
     msgToSend.type              = type;
     msgToSend.headerStartMarker = HEADER_START_MARKER;
-    msgToSend.scriptVer         = mainState->scriptVer;
+    msgToSend.scriptVer         = runtimeState->scriptVer;
 
     if (type == MSG_NBR_STATE) {
 
@@ -234,7 +257,7 @@ uint8_t TCP::sendPacket(uint8_t* buffer, uint32_t bufferLength, uint8_t type, ui
     msgToSend.type              = type;    
     msgToSend.headerStartMarker = HEADER_START_MARKER; 
     msgToSend.length            = bufferLength + PACKET_HEADER_LENGTH;
-    msgToSend.scriptVer         = mainState->scriptVer;
+    msgToSend.scriptVer         = runtimeState->scriptVer;
 
     for (uint8_t i=0; i<bufferLength; i++) {
         msgToSend.payload[i] = buffer[i];
@@ -306,7 +329,7 @@ uint8_t TCP::unicastScriptPkt(uint16_t pkindex, uint8_t portId) {
             }
 
             // mark the msg with the script version
-            msgToSend.scriptVer = mainState->scriptVer;
+            msgToSend.scriptVer = runtimeState->scriptVer;
 
             // compute and add the checksum
             msgToSend.checksum = getMsgChecksum(&msgToSend);
@@ -337,18 +360,18 @@ void TCP::processReceivedMessage(message_t *msg, uint8_t portId) {
         case MSG_SCRIPT:
             LOG(LOG_TRANSP,3,"got script msg, asking: %d",tcpState.askForScript);
             // accept only msgs belonging to the new script
-            if (tcpState.askForScript && (msg->scriptVer == mainState->newScriptVer)) {
-                LOG(LOG_TRANSP,3,"proc. msg, ver:%d, mine: %d",msg->scriptVer,mainState->newScriptVer);
+            if (tcpState.askForScript && (msg->scriptVer == runtimeState->newScriptVer)) {
+                LOG(LOG_TRANSP,3,"proc. msg, ver:%d, mine: %d",msg->scriptVer,runtimeState->newScriptVer);
                 processIncomingScriptMsg(msg, portId);
             } else {
-                LOG(LOG_TRANSP,3,"!proc msg, ver:%d, mine: %d",msg->scriptVer,mainState->newScriptVer);               
+                LOG(LOG_TRANSP,3,"!proc msg, ver:%d, mine: %d",msg->scriptVer,runtimeState->newScriptVer);               
             }
             break;
 
         case MSG_NBR_STATE: 
             {
-                if (tcpState.gotScript && (msg->scriptVer == mainState->scriptVer)) {
-                    LOG(LOG_TRANSP,3,"proc nbr state. nbr ver: %d, my ver: %d",msg->scriptVer, mainState->scriptVer);
+                if (tcpState.gotScript && (msg->scriptVer == runtimeState->scriptVer)) {
+                    LOG(LOG_TRANSP,3,"proc nbr state. nbr ver: %d, my ver: %d",msg->scriptVer, runtimeState->scriptVer);
                     nbrStateMessage_t nbrStateMsg;
                     nbrStateMsg.blockId = msg->payload[0] + (msg->payload[1] << 8); 
                     nbrStateMsg.portrcv = portId;
@@ -363,15 +386,15 @@ void TCP::processReceivedMessage(message_t *msg, uint8_t portId) {
         case MSG_NEED_SCRIPT:
             LOG(LOG_TRANSP, 1, "--- received script request");
             if (tcpState.gotScript) {
-                if (msg->payload[2] == mainState->scriptVer) {
+                if (msg->payload[2] == runtimeState->scriptVer) {
                     // extract packet index
                     int16_t pkindex = 0;
                     pkindex = (msg->payload[0] << 8) + msg->payload[1] - 1;
-                    LOG(LOG_TRANSP, 1, "-- began exporting script %d (pkt %d)",mainState->scriptVer,pkindex);
+                    LOG(LOG_TRANSP, 1, "-- began exporting script %d (pkt %d)",runtimeState->scriptVer,pkindex);
                     unicastScriptPkt(pkindex, portId);
                     LOG(LOG_TRANSP, 1, "-- done exporting script");
                 } else {
-                    LOG(LOG_TRANSP, 1, "script req issue: mine:%d, req:%d",mainState->scriptVer,msg->payload[2]);
+                    LOG(LOG_TRANSP, 1, "script req issue: mine:%d, req:%d",runtimeState->scriptVer,msg->payload[2]);
                 }
             }
             break;
@@ -379,18 +402,18 @@ void TCP::processReceivedMessage(message_t *msg, uint8_t portId) {
         case MSG_DEALLOC:
             LOG(LOG_TRANSP,1,"received dealloc msg");
             LOG(LOG_PRINT,1,"!!! deallocating !!!!");
-            mainState->lifecycleAction = LA_DEALLOCATE; // trigger "deallocate" action
+            runtimeState->lifecycleAction = LA_DEALLOCATE; // trigger "deallocate" action
             break;
 
         case MSG_REBOOT:
             LOG(LOG_TRANSP,1,"received reboot msg");
             LOG(LOG_PRINT,1,"!!! rebooting !!!!");
-            mainState->lifecycleAction = LA_RESET_NODE; // trigger "reset" action
+            runtimeState->lifecycleAction = LA_RESET_NODE; // trigger "reset" action
             break;
             
         case MSG_STATUS:
             LOG(LOG_TRANSP,1,"received show status req msg");
-            mainState->lifecycleAction = LA_SHOW_STATUS; // trigger "show status ()" action
+            runtimeState->lifecycleAction = LA_SHOW_STATUS; // trigger "show status ()" action
             break;
 
         case MSG_INFO:
@@ -464,12 +487,12 @@ void TCP::processReceivedMessage(message_t *msg, uint8_t portId) {
             break;
 
         case MSG_GET_SIGNAL:
-            mainState->reportSignalId[0] = (int32_t)((msg->payload[0]<<24)  + (msg->payload[1]<<16)  + (msg->payload[2]<<8)  + msg->payload[3]);
-            mainState->reportSignalId[1] = (int32_t)((msg->payload[4]<<24)  + (msg->payload[5]<<16)  + (msg->payload[6]<<8)  + msg->payload[7]);
-            mainState->reportSignalId[2] = (int32_t)((msg->payload[8]<<24)  + (msg->payload[9]<<16)  + (msg->payload[10]<<8) + msg->payload[11]);
-            mainState->reportSignalId[3] = (int32_t)((msg->payload[12]<<24) + (msg->payload[13]<<16) + (msg->payload[14]<<8) + msg->payload[15]);
-            mainState->reportSignalIdPort = portId;
-            LOG(LOG_TRANSP, 2,"msg signal: %ld %ld %ld %ld", mainState->reportSignalId[0], mainState->reportSignalId[1], mainState->reportSignalId[2], mainState->reportSignalId[3]);
+            runtimeState->reportSignalId[0] = (int32_t)((msg->payload[0]<<24)  + (msg->payload[1]<<16)  + (msg->payload[2]<<8)  + msg->payload[3]);
+            runtimeState->reportSignalId[1] = (int32_t)((msg->payload[4]<<24)  + (msg->payload[5]<<16)  + (msg->payload[6]<<8)  + msg->payload[7]);
+            runtimeState->reportSignalId[2] = (int32_t)((msg->payload[8]<<24)  + (msg->payload[9]<<16)  + (msg->payload[10]<<8) + msg->payload[11]);
+            runtimeState->reportSignalId[3] = (int32_t)((msg->payload[12]<<24) + (msg->payload[13]<<16) + (msg->payload[14]<<8) + msg->payload[15]);
+            runtimeState->reportSignalIdPort = portId;
+            LOG(LOG_TRANSP, 2,"msg signal: %ld %ld %ld %ld", runtimeState->reportSignalId[0], runtimeState->reportSignalId[1], runtimeState->reportSignalId[2], runtimeState->reportSignalId[3]);
             break;
             
         case MSG_SEND_SIGNAL:
@@ -572,7 +595,7 @@ void TCP::resetTCPState(void) {
 void TCP::sendScriptVersion(void)
 {
     uint8_t payload[1];
-    payload[0] = mainState->scriptVer;
+    payload[0] = runtimeState->scriptVer;
     if (!sendPacket(payload,1,MSG_SCRIPT_VER,ALLPORTS)) {
         LOG(LOG_TRANSP,2,"Failed sending script version");
     }
@@ -583,13 +606,13 @@ void TCP::sendFirmwareVersion(void)
 {
     uint8_t payload[4];
     
-    payload[0] =  mainState->firmVer        & 0xff;
-    payload[1] = (mainState->firmVer >> 8)  & 0xff;
-    payload[2] = (mainState->firmVer >> 16) & 0xff;
-    payload[3] = (mainState->firmVer >> 24) & 0xff;
+    payload[0] =  runtimeState->firmVer        & 0xff;
+    payload[1] = (runtimeState->firmVer >> 8)  & 0xff;
+    payload[2] = (runtimeState->firmVer >> 16) & 0xff;
+    payload[3] = (runtimeState->firmVer >> 24) & 0xff;
     
-    //*((uint8_t*)payload) = mainState.firmVer;
-    LOG(LOG_TRANSP, 2, "Sending firmVer: %ld", mainState->firmVer);
+    //*((uint8_t*)payload) = runtimeState.firmVer;
+    LOG(LOG_TRANSP, 2, "Sending firmVer: %ld", runtimeState->firmVer);
 
     if (!sendPacket(payload, 4, MSG_FIRM_VER, ALLPORTS)) {
         LOG(LOG_TRANSP,2,"Failed sending firmware version");

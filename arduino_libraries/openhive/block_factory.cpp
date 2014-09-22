@@ -28,22 +28,26 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __block_h
-#define __block_h
+#include "block.h"
+#include "block_factory.h"
+#include "block_gradient.h"
+#include "Logging.h"
 
-#include "types.h"
+// factory design pattern
+Block* BlockFactory::makeBlock(runtimeState_t* runtimeState_, uint8_t blockName_, uint16_t blockId_) {
 
-// abstract class
-class Block {
-private:
-public:
-	virtual void in(void)         = 0;
-	virtual void out(void)        = 0;
-	virtual void step(void)       = 0;
-	virtual void deallocate(void) = 0;
+	// check which block we want to create
+	switch (blockName_) {
+		case GRADIENT:
+			return new BlockGradient(runtimeState_, blockId_);
+			break;
+		default:
+			LOG(LOG_PRINT,1,"Got unknown block type. Check the binary !\n");
+			break;
+	}
+}
 
-	// re-define the '=' operator
-	//Block& operator= (Block const &rhs);
-};
-
-#endif
+// overloading "=" operator
+//Block& Block::operator=(Block const &rhs) {
+//	return *this;
+//}

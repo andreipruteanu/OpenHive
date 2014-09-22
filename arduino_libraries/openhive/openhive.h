@@ -42,10 +42,13 @@ private:
 	Script* script;
 
 	// the global state of the application
-	mainState_t mainState;
+	runtimeState_t runtimeState;
 
 	// TCP handle used for Logging
 	TCP* tcpHandler;
+
+	// BlockFactory object
+	BlockFactory* blockFactory;
 
 	// the pin state info
 	pinState_t pinState;
@@ -54,7 +57,7 @@ private:
 	uint8_t ledstate;
 protected:
 public:
-	void initMainState(void);
+	void initruntimeState(void);
 	void initBlocks(void);
 	void setup(void);
 	void loop(void);

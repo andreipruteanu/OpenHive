@@ -33,10 +33,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "types.h"
 #include "script.h"
 
-Script::Script(mainState_t* _mainState)
+Script::Script(runtimeState_t* _runtimeState)
 {
 
-    mainState = _mainState;
+    runtimeState = _runtimeState;
 
     // define the default script
     uint8_t defaultScriptArray[DEFAULT_SCRIPT_SIZE] = {}; // change for default script
@@ -102,7 +102,7 @@ uint8_t* Script::getBlockStateTypes(void) {
 /**
  * report blocks
  **/
-block_t* Script::getBlocks(void) {
+Block** Script::getBlocks(void) {
     return blocks;
 }
 

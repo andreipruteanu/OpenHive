@@ -33,6 +33,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Logging.h"
 #include "tcp.h"
 #include "block.h"
+#include "block_factory.h"
+#include "block_gradient.h"
 #include <malloc.h>
 //#include "Actuator.h"
 //#include "wdt.h"
@@ -41,8 +43,11 @@ void OpenHive::setup()
 {
 	InitLogging();
 	LOG(LOG_PRINT,1,"OpenHive Setup");
-    script     = new Script(&mainState);
-    tcpHandler = new TCP(&mainState,script);
+
+    // create objects
+    script       = new Script(&runtimeState);
+    tcpHandler   = new TCP(&runtimeState,script);
+    blockFactory = new BlockFactory();
     
     ledstate   = 0;
 }
@@ -55,15 +60,15 @@ void OpenHive::loop()
     //wdt_restart(WDT);
 
     // activate the servo motors
-    //if ((millis() - mainState.lastServoEvent)>SERVO_UPDATE_PERIOD) {
+    //if ((millis() - runtimeState.lastServoEvent)>SERVO_UPDATE_PERIOD) {
     //  for (uint8_t i=0; i< servoState.ServoCount; i++) {
     //    servoWrite(i, servoState.value[i]);
     //  }
-    //  mainState.lastServoEvent = millis();
+    //  runtimeState.lastServoEvent = millis();
     //}
 
     // check lifecycle actions to be executed
-    switch (mainState.lifecycleAction) {
+    switch (runtimeState.lifecycleAction) {
         case LA_DEALLOCATE:
             deallocate();
             break;
@@ -78,19 +83,19 @@ void OpenHive::loop()
     }
 
     // return to lifecycle "none" action
-    mainState.lifecycleAction = LA_NONE;
+    runtimeState.lifecycleAction = LA_NONE;
 
     // check the uart port for data
-    if ((millis() - mainState.lastEventImport) > IMPORT_PERIOD) {
+    if ((millis() - runtimeState.lastEventImport) > IMPORT_PERIOD) {
 
         // TODO !
         tcpHandler->import();
-        mainState.lastEventImport = millis();
+        runtimeState.lastEventImport = millis();
     }
 
     // the actual execution
     if ((tcpHandler->getTCP_State()).gotScript) {
-        if ((millis() - mainState.lastEventExecute) >= EXECUTE_PERIOD) {
+        if ((millis() - runtimeState.lastEventExecute) >= EXECUTE_PERIOD) {
 
             // led heartbit
             toggleled();
@@ -101,31 +106,31 @@ void OpenHive::loop()
             // if needed send back the signal value
             tcpHandler->sendSignalValue();
 
-            mainState.lastEventExecute = millis();
+            runtimeState.lastEventExecute = millis();
             // increment the global tick
-            mainState.tick++;
+            runtimeState.tick++;
         }
     }
 
     // ask for script when a new version has been seen
     if ((tcpHandler->getTCP_State()).askForScript == 1) {
-        if ((millis() - mainState.lastEventAskScript) >= ASK_FOR_SCRIPT_PERIOD) {
+        if ((millis() - runtimeState.lastEventAskScript) >= ASK_FOR_SCRIPT_PERIOD) {
             // ask for a script only when a new script has been seen
-            if (tcpHandler->isScriptVerLarger(mainState.newScriptVer, mainState.scriptVer)) {
-                LOG(LOG_TRANSP,2,"Asking for script: %d",mainState.newScriptVer);
+            if (tcpHandler->isScriptVerLarger(runtimeState.newScriptVer, runtimeState.scriptVer)) {
+                LOG(LOG_TRANSP,2,"Asking for script: %d",runtimeState.newScriptVer);
                 tcpHandler->askForScript();
             }
-            mainState.lastEventAskScript = millis();
+            runtimeState.lastEventAskScript = millis();
         }
     }
 
     // beacon
-    if ((millis() - mainState.lastEventBeacon) >= BEACON_PERIOD) {
+    if ((millis() - runtimeState.lastEventBeacon) >= BEACON_PERIOD) {
         // beacon only if there's a script on the node
-        if (mainState.scriptVer > 0) {
+        if (runtimeState.scriptVer > 0) {
             tcpHandler->beacon();
         }
-        mainState.lastEventBeacon = millis();
+        runtimeState.lastEventBeacon = millis();
     }
 
 }
@@ -135,7 +140,7 @@ void OpenHive::executeCode(void) {
 
     if ((tcpHandler->getTCP_State()).gotScript) {
 
-        LOG(LOG_MAIN, 1, "tick %d start. ver: %d, rel: %d, MT: %d, DT: %d", mainState.tick, mainState.scriptVer, mainState.releaseLevel, mainState.maxExecutionTime, (mainState.maxExecutionTime * 1000 - millis()));
+        LOG(LOG_MAIN, 1, "tick %d start. ver: %d, rel: %d, MT: %d, DT: %d", runtimeState.tick, runtimeState.scriptVer, runtimeState.releaseLevel, runtimeState.maxExecutionTime, (runtimeState.maxExecutionTime * 1000 - millis()));
         LOG(LOG_MAIN, 2, "#blocks: %d", script->getBlockCount());
         
         for (uint16_t i=0; i < script->getBlockCount(); ++i) {  
@@ -144,12 +149,12 @@ void OpenHive::executeCode(void) {
             
             if ((script->getBlockStateTypes())[i] == BT_ALGO) {
                 LOG(LOG_MAIN, 2,"algo exec");
-                ((script->getBlocks())[i]).in(i);
-                ((script->getBlocks())[i]).step(i);
-                ((script->getBlocks())[i]).out(i);
+                (*((script->getBlocks())[i])).in();
+                (*((script->getBlocks())[i])).step();
+                (*((script->getBlocks())[i])).out();
             } else {
                 LOG(LOG_MAIN, 2,"nonstate exec");
-                ((script->getBlocks())[i]).out(i);
+                (*((script->getBlocks())[i])).out();
             }
 
             LOG(LOG_MAIN,2,"stop. block exec.");
@@ -157,7 +162,7 @@ void OpenHive::executeCode(void) {
         
         tcpHandler->exportState();
         
-        LOG(LOG_MAIN,  1, "tick %d end. code ver: %d", mainState.tick, mainState.scriptVer);
+        LOG(LOG_MAIN,  1, "tick %d end. code ver: %d", runtimeState.tick, runtimeState.scriptVer);
     }
 }
 
@@ -180,7 +185,7 @@ void OpenHive::deallocate(void) {
         for (i=0; i < script->getBlockCount(); ++i) {  
             if ((script->getBlockStateTypes())[i] != BT_SIMPLE) {
                 LOG(LOG_DEAL,2,"deal block %d",i);
-                (script->getBlocks())[i].deal(i);
+                (*(script->getBlocks())[i]).deallocate();
             }
         }
 
@@ -203,7 +208,7 @@ void OpenHive::deallocate(void) {
         script->deallocateNewScriptArray();
         
         // initialise the main state
-        initMainState();
+        initruntimeState();
         
         // initialise the transport protocol state
         tcpHandler->initTCP();
@@ -227,13 +232,18 @@ void OpenHive::initBlocks(void) {
     // initialize the blocks that have state
     LOG(LOG_SCRIPT, 3, "# blocks: %d", script->getBlockCount());
     
-    for (uint16_t j=0; j<(script->getBlockCount()); ++j) {
-        LOG(LOG_SCRIPT, 3, "block:%d/%d blocktype:%d", j, script->getBlockCount(), (script->getBlockStateTypes())[j]);
+    uint16_t blockCount = script->getBlockCount();
+    Block** blocks      = script->getBlocks();
+
+    // allocate the new script
+    blocks = new Block*[blockCount];
+
+    for (uint16_t j=0; j<blockCount; ++j) {
+        LOG(LOG_SCRIPT, 3, "block:%d/%d blocktype:%d", j, blockCount, (script->getBlockStateTypes())[j]);
 
         uint8_t blockName = (script->getBlockStateTypes())[j];
-
-        // TO DO: re-implement '=' operator
-        //(script->getBlocks())[j] = Block::makeBlock(&mainState, blockName, j);
+        
+        blocks[j] = blockFactory->makeBlock(&runtimeState, blockName, j);
     }
 }
 
@@ -244,10 +254,10 @@ void OpenHive::resetNode(void) {
 void OpenHive::showStatus(void) {
     //struct mallinfo mem;
     //mem = mallinfo();
-    LOG(LOG_PRINT,1,"STATUS: Firmware version: %ld", mainState.firmVer);
-    LOG(LOG_PRINT,1,"STATUS: New script version: %ld", mainState.newScriptVer);    
-    LOG(LOG_PRINT,1,"STATUS: Script version: %ld", mainState.scriptVer);
-    LOG(LOG_PRINT,1,"STATUS: tick: %ld", mainState.tick);
+    LOG(LOG_PRINT,1,"STATUS: Firmware version: %ld", runtimeState.firmVer);
+    LOG(LOG_PRINT,1,"STATUS: New script version: %ld", runtimeState.newScriptVer);    
+    LOG(LOG_PRINT,1,"STATUS: Script version: %ld", runtimeState.scriptVer);
+    LOG(LOG_PRINT,1,"STATUS: tick: %ld", runtimeState.tick);
     //LOG(LOG_PRINT,1,"STATUS: Free mem: %d, alloc mem: %d", mem.fordblks, mem.uordblks);
 
     if ((tcpHandler->getTCP_State()).gotScript) {
@@ -283,42 +293,42 @@ void OpenHive::showStatus(void) {
     }
 }
 
-void OpenHive::initMainState(void)
+void OpenHive::initruntimeState(void)
 {
 
     // define the max debug level: 0 for "release" mode
-    mainState.DEBUG_LEVEL = 255;
+    runtimeState.DEBUG_LEVEL = 255;
 
     // elapsed time
-    mainState.eventImport         = 0;
-    mainState.lastEventExecute    = 0;
-    mainState.lastEventImport     = 0;
-    mainState.lastEventAskScript  = 0;
-    mainState.lastEventBeacon     = 0;
-    mainState.scriptVer           = 0;
-    mainState.newScriptVer        = 0;
-    mainState.lastServoEvent      = 0;
+    runtimeState.eventImport         = 0;
+    runtimeState.lastEventExecute    = 0;
+    runtimeState.lastEventImport     = 0;
+    runtimeState.lastEventAskScript  = 0;
+    runtimeState.lastEventBeacon     = 0;
+    runtimeState.scriptVer           = 0;
+    runtimeState.newScriptVer        = 0;
+    runtimeState.lastServoEvent      = 0;
 
     // the current tick
-    mainState.tick = 0;
+    runtimeState.tick = 0;
 
     // set the mem alloc flag to false initially
-    mainState.memAlloc = 0;
+    runtimeState.memAlloc = 0;
 
     // set the firmware version
-    mainState.firmVer = FIRMWARE_VERSION;
+    runtimeState.firmVer = FIRMWARE_VERSION;
 
     // set the maximum execution time
-    mainState.maxExecutionTime = MAX_EXECUTION_TIME;
+    runtimeState.maxExecutionTime = MAX_EXECUTION_TIME;
 
     // set the release level
-    mainState.releaseLevel = RELEASE_LEVEL;
+    runtimeState.releaseLevel = RELEASE_LEVEL;
 
     // initialize the reporting signal value
-    mainState.reportSignalId[0] = -1;
-    mainState.reportSignalId[1] = -1;
-    mainState.reportSignalId[2] = -1;
-    mainState.reportSignalId[3] = -1;
-    mainState.reportSignalIdPort = PORTDEBUG;
+    runtimeState.reportSignalId[0] = -1;
+    runtimeState.reportSignalId[1] = -1;
+    runtimeState.reportSignalId[2] = -1;
+    runtimeState.reportSignalId[3] = -1;
+    runtimeState.reportSignalIdPort = PORTDEBUG;
 
 }

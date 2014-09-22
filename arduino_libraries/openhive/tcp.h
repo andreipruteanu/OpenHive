@@ -48,7 +48,7 @@ private:
 	tcpState_t tcpState;
 
 	// pointer to the main state
-	mainState_t* mainState;
+	runtimeState_t* runtimeState;
 
 protected:
 
@@ -56,7 +56,7 @@ public:
 	/**
  	 * constructor
 	 **/
-	TCP(mainState_t* _mainState, Script* _scriptHandler);
+	TCP(runtimeState_t* _runtimeState, Script* _scriptHandler);
 
 	/**
  	 * destructor
