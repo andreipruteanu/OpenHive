@@ -28,58 +28,34 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __block_gradient_h
-#define __block_gradient_h
+#include "types.h"
+#include "logging.h"
+#include "block_addition.h"
 
-#include "block.h"
-#include "queue.h"
-#include "script.h"
+// constructor
+BlockAddition::BlockAddition(runtimeState_t* runtimeState_, uint16_t blockId_) {
+	runtimeState = runtimeState_;
+	blockId      = blockId_;
+}
 
-/**
- * \def gradient msg q size
-**/
-#define GRAD_MSG_Q_SIZE 10
+// do the actual operation
+void BlockAddition::out(void) {
+    LOG(LOG_ADD, 2,"ADD Execute");
 
-// the "hop" packet
-typedef struct {
-	uint8_t hopcount;
-	uint32_t tick;
-} hopMsg_t;
+    // retrieve ports and signals pointers from the script datastructure
+    float* signals = scriptHandler->getSignals();
+    ports_t* ports = scriptHandler->getPorts();
 
-// the input & output signals
-typedef struct {
-    Queue* q;  
-    uint32_t gradStart;        // time when gradient started
-    uint8_t  hopcount;         // output
-    uint8_t  amISource;        // input
-    uint32_t maxHopcount;      // max hopcount input
-} gradientState_t;
+    float in1 = signals[ports[blockId].in[0]];
+    float in2 = signals[ports[blockId].in[1]];
 
-class BlockGradient : public Block {
-private:
-	// pointer to the main state
-	runtimeState_t* runtimeState;
+    signals[ports[blockId].out[0]] = in1 + in2;
 
-	gradientState_t* state;
-	// script object
-	Script* scriptHandler;
-	uint16_t blockId;
-public:
-	BlockGradient(runtimeState_t*, uint16_t blockId);
-	void in(void);
-	void out(void);
-	void step(void);
-	void deallocate(void);
+    LOG(LOG_ADD, 1,"ADD in1=%f in2=%f out=%f",in1,in2,signals[ports[blockId].out[0]]);
+}
 
-	gradientState_t* getState(void);
-	uint16_t getStateSize(void);
-
-	// custom algorithm function prototypes
-	void addNbrGradToQueue(uint16_t id, hopMsg_t nbrGradMsg);
-	void gradConsumeNbrStateMsg(uint16_t, uint8_t*);
-	int32_t getMaxHopcount(uint16_t id);
-	uint32_t getMinGrad(uint16_t id);
-};
-
-#endif
+// dummy functions needed because of derivation from abstract base class
+void BlockAddition::in(void) { }
+void BlockAddition::step(void) { }
+void BlockAddition::deallocate(void) { }
 

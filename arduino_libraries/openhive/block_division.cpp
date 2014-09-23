@@ -28,26 +28,40 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "block.h"
-#include "block_factory.h"
-#include "block_gradient.h"
-#include "Logging.h"
+#include "types.h"
+#include "logging.h"
+#include "block_division.h"
 
-// factory design pattern
-Block* BlockFactory::makeBlock(runtimeState_t* runtimeState_, uint8_t blockName_, uint16_t blockId_) {
-
-	// check which block we want to create
-	switch (blockName_) {
-		case GRADIENT:
-			return new BlockGradient(runtimeState_, blockId_);
-			break;
-		default:
-			LOG(LOG_PRINT,1,"Got unknown block type. Check the binary !\n");
-			break;
-	}
+// constructor
+BlockDivision::BlockDivision(runtimeState_t* runtimeState_, uint16_t blockId_) {
+	runtimeState = runtimeState_;
+	blockId      = blockId_;
 }
 
-// overloading "=" operator
-//Block& Block::operator=(Block const &rhs) {
-//	return *this;
-//}
+// do the actual operation
+void BlockDivision::out(void) {
+    LOG(LOG_ADD, 2,"MUL Execute");
+
+    // retrieve ports and signals pointers from the script datastructure
+    float* signals = scriptHandler->getSignals();
+    ports_t* ports = scriptHandler->getPorts();
+
+    float in1 = signals[ports[blockId].in[0]];
+    float in2 = signals[ports[blockId].in[1]];
+
+    // protect against division by 0 
+    float out = 0;
+    if (in2 != 0) {
+        out = in1 / in2;
+    }
+
+    signals[ports[blockId].out[0]] = out;
+
+    LOG(LOG_ADD, 1,"MUL in1=%f in2=%f out=%f",in1,in2,signals[ports[blockId].out[0]]);
+}
+
+// dummy functions needed because of derivation from abstract base class
+void BlockDivision::in(void) { }
+void BlockDivision::step(void) { }
+void BlockDivision::deallocate(void) { }
+

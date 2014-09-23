@@ -34,28 +34,33 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "logging.h"
 
 BlockGradient::BlockGradient(runtimeState_t* runtimeState_, uint16_t blockId_) {
-	blockId = blockId_;
-	runtimeState = runtimeState_;
-	LOG(LOG_ALGGRAD, 2,"Initializing Gradient Block");
+  blockId = blockId_;
+  runtimeState = runtimeState_;
+  LOG(LOG_ALGGRAD, 2,"Initializing Gradient Block");
 
-	// initialize the gradient
-  	state->amISource   = 0;
-  	state->maxHopcount = 250;
-	
-	// allocate the queue itself
-	state->q = new Queue(sizeof(hopMsg_t),GRAD_MSG_Q_SIZE);
+  // initialize the gradient
+  state->amISource   = 0;
+  state->maxHopcount = 250;
+  
+  // allocate the queue itself
+  state->q = new Queue(sizeof(hopMsg_t),GRAD_MSG_Q_SIZE);
 }
 
 void BlockGradient::in(void) {
     LOG(LOG_ALGGRAD, 2,"Gradient In");
-    state->amISource   = (uint8_t)scriptHandler->getSignals()[(scriptHandler->getPorts())[blockId].in[0]];
-    state->maxHopcount = (int32_t)scriptHandler->getSignals()[(scriptHandler->getPorts())[blockId].in[1]];
+
+    // retrieve ports and signals pointers from the script datastructure
+    float* signals = scriptHandler->getSignals();
+    ports_t* ports = scriptHandler->getPorts();
+
+    state->amISource   = (uint8_t)signals[ports[blockId].in[0]];
+    state->maxHopcount = (int32_t)signals[ports[blockId].in[1]];
 }
 
 void BlockGradient::out(void) {
-	LOG(LOG_ALGGRAD, 2,"Gradient Out");
-	float* signals = scriptHandler->getSignals();
-	signals[(scriptHandler->getPorts())[blockId].out[0]] = (float)state->hopcount;
+  LOG(LOG_ALGGRAD, 2,"Gradient Out");
+  float* signals = scriptHandler->getSignals();
+  signals[(scriptHandler->getPorts())[blockId].out[0]] = (float)state->hopcount;
 }
 
 void BlockGradient::step(void) {
@@ -84,35 +89,79 @@ void BlockGradient::step(void) {
 }
 
 void BlockGradient::deallocate(void) {
+  LOG(LOG_ALGGRAD, 2,"De-allocating Gradient Block");
 
+  // de-allocate state queue
+  free(state->q);
 }
 
-void BlockGradient::gradConsumeNbrStateMsg(uint16_t, uint8_t*) {
+void BlockGradient::gradConsumeNbrStateMsg(uint16_t id, uint8_t* nbrStateArray) {
+  LOG(LOG_ALGGRAD, 2,"Gradient: consuming nbr state msg.");
 
+  gradientState_t *nbrState   = (gradientState_t *)nbrStateArray;
+
+  LOG(LOG_ALGGRAD, 2,"Nbr hopcount: %d", nbrState->hopcount);
+
+  uint8_t nbrHopcount = nbrState->hopcount;
+
+    if (nbrHopcount < getMaxHopcount(id)) {
+        hopMsg_t nbrHopMsg;
+        nbrHopMsg.hopcount = nbrHopcount;
+        nbrHopMsg.tick     = runtimeState->tick;
+
+        addNbrGradToQueue(id, nbrHopMsg);
+    }
+}
+
+void BlockGradient::addNbrGradToQueue(uint16_t id, hopMsg_t nbrGradMsg)
+{
+  hopMsg_t lastElem;
+
+  Block** blocks = scriptHandler->getBlocks();
+
+  gradientState_t* state = (gradientState_t*) ( (BlockGradient*) (blocks[id]) )->getState();
+
+  LOG(LOG_ALGGRAD, 2,"adding neighbour to Q:");
+  LOG(LOG_ALGGRAD, 2,"nbr hopcount=%d, nbr start ticks=%d",nbrGradMsg.hopcount,nbrGradMsg.tick);
+
+  // if cannot do push, first pop the last element
+  LOG(LOG_ALGGRAD,2,"before push q size: %d",(state->q)->length());
+  while (! (state->q)->push((uint8_t*)(&nbrGradMsg)) )
+  {
+    LOG(LOG_ALGGRAD,2,"queue length=%d",(state->q)->length());
+    if ( (state->q)->pop( (uint8_t*) (&lastElem) ) ) {
+      LOG(LOG_ALGGRAD,2,"queue length after pop=%d", (state->q)->length());
+      LOG(LOG_ALGGRAD,2,"popped hop=%d, start ticks=%d",lastElem.hopcount,lastElem.tick);
+    } else {
+      LOG(LOG_ALGGRAD,2,"error popping the element");
+    }
+  }
+  LOG(LOG_ALGGRAD,2,"after push q size: %d",(state->q)->length());
+  //printQ(id); 
 }
 
 int32_t BlockGradient::getMaxHopcount(uint16_t id) {
-	return state->maxHopcount;
+  return state->maxHopcount;
 }
 
 uint32_t BlockGradient::getMinGrad(uint16_t id)
 {
-	uint32_t min = getMaxHopcount(id);
-	uint32_t i;
+  uint32_t min = getMaxHopcount(id);
+  uint32_t i;
 
-	for (i=0; i < (state->q)->length(); i++)
-	{
-		hopMsg_t peekMsg;
-		(state->q)->peekElement(i,(uint8_t*)&peekMsg);
+  for (i=0; i < (state->q)->length(); i++)
+  {
+    hopMsg_t peekMsg;
+    (state->q)->peekElement(i,(uint8_t*)&peekMsg);
 
-		if (peekMsg.hopcount < min) 
-		{
-			min = peekMsg.hopcount;
-		}
-	}
-	LOG(LOG_ALGGRAD, 2,"found min grad=%d",min);
+    if (peekMsg.hopcount < min) 
+    {
+      min = peekMsg.hopcount;
+    }
+  }
+  LOG(LOG_ALGGRAD, 2,"found min grad=%d",min);
 
-	return min;
+  return min;
 }
 
 gradientState_t* BlockGradient::getState(void) 

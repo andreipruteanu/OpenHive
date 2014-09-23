@@ -247,8 +247,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * \enum define types of supported blocks
 **/
 enum {
-    SYNC     = 0,            // DONE
-    GRADIENT,                // DONE
+    ALG_SYNC     = 0,        // DONE
+    ALG_GRADIENT,            // DONE
     ALG_TOKEN,               // DONE
     ALG_RANDOM,              // DONE
     ADDITION = 20,           // DONE

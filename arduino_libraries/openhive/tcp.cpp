@@ -172,6 +172,7 @@ void TCP::exportState(void) {
     if (tcpState.gotScript) {
         for (uint8_t blockNo = 0; blockNo < (scriptHandler->getBlockCount()); blockNo++) {
             if ((scriptHandler->getBlockStateTypes())[blockNo] == BT_ALGO) {
+                
                 // get a pointer to the blocks array
                 Block** blocks = scriptHandler->getBlocks();
 
@@ -186,7 +187,7 @@ void TCP::exportState(void) {
 
                 // cast to a specific block type
                 switch (blockName) {
-                    case GRADIENT:
+                    case ALG_GRADIENT:
                         blockState = (uint8_t*) ( (BlockGradient*) (blocks[blockNo]) )->getState();
                         stateSize  = ( (BlockGradient*) (blocks[blockNo]) )->getStateSize();
                         break;

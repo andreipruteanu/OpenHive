@@ -241,8 +241,10 @@ void OpenHive::initBlocks(void) {
     for (uint16_t j=0; j<blockCount; ++j) {
         LOG(LOG_SCRIPT, 3, "block:%d/%d blocktype:%d", j, blockCount, (script->getBlockStateTypes())[j]);
 
+        // retrieve Block name
         uint8_t blockName = (script->getBlockStateTypes())[j];
         
+        // create blocks
         blocks[j] = blockFactory->makeBlock(&runtimeState, blockName, j);
     }
 }
