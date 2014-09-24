@@ -28,40 +28,58 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "types.h"
-#include "logging.h"
-#include "block_division.h"
+#ifndef __block_gradient_h
+#define __block_gradient_h
 
-// constructor
-BlockDivision::BlockDivision(runtimeState_t* runtimeState_, uint16_t blockId_) {
-	runtimeState = runtimeState_;
-	blockId      = blockId_;
-}
+#include "block.h"
+#include "queue.h"
+#include "script.h"
 
-// do the actual operation
-void BlockDivision::out(void) {
-    LOG(LOG_DIV, 2,"DIV Execute");
+/**
+ * \def gradient msg q size
+**/
+#define GRAD_MSG_Q_SIZE 10
 
-    // retrieve ports and signals pointers from the script datastructure
-    float* signals = scriptHandler->getSignals();
-    ports_t* ports = scriptHandler->getPorts();
+// the "hop" packet
+typedef struct {
+	uint8_t hopcount;
+	uint32_t tick;
+} hopMsg_t;
 
-    float in1 = signals[ports[blockId].in[0]];
-    float in2 = signals[ports[blockId].in[1]];
+// the input & output signals
+typedef struct {
+    Queue* q;  
+    uint32_t gradStart;        // time when gradient started
+    uint8_t  hopcount;         // output
+    uint8_t  amISource;        // input
+    uint32_t maxHopcount;      // max hopcount input
+} gradientState_t;
 
-    // protect against division by 0 
-    float out = 0;
-    if (in2 != 0) {
-        out = in1 / in2;
-    }
+class BlockGradient : public Block {
+private:
+	// pointer to the main state
+	runtimeState_t* runtimeState;
 
-    signals[ports[blockId].out[0]] = out;
+	gradientState_t* state;
+	// script object
+	Script* scriptHandler;
+	uint16_t blockId;
+public:
+	BlockGradient(runtimeState_t*, uint16_t blockId);
+	void in(void);
+	void out(void);
+	void step(void);
+	void deallocate(void);
 
-    LOG(LOG_DIV, 1,"DIV in1=%f in2=%f out=%f",in1,in2,signals[ports[blockId].out[0]]);
-}
+	gradientState_t* getState(void);
+	uint16_t getStateSize(void);
 
-// dummy functions needed because of derivation from abstract base class
-void BlockDivision::in(void) { }
-void BlockDivision::step(void) { }
-void BlockDivision::deallocate(void) { }
+	// custom algorithm function prototypes
+	void addNbrGradToQueue(uint16_t id, hopMsg_t nbrGradMsg);
+	void gradConsumeNbrStateMsg(uint16_t, uint8_t*);
+	int32_t getMaxHopcount(uint16_t id);
+	uint32_t getMinGrad(uint16_t id);
+};
+
+#endif
 

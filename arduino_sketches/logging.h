@@ -28,40 +28,80 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef __LOGGING_H
+#define __LOGGING_H
+
+#include "Arduino.h"
+#include "TCP.h"
 #include "types.h"
-#include "logging.h"
-#include "block_division.h"
+#include "block_factory.h"
+#include <stdio.h>
+#include <stdarg.h>
 
-// constructor
-BlockDivision::BlockDivision(runtimeState_t* runtimeState_, uint16_t blockId_) {
-	runtimeState = runtimeState_;
-	blockId      = blockId_;
-}
+// the log markers for every module
+typedef enum LOG_BLOCK_type {
+  LOG_ACTUATOR,
+  LOG_ABS,
+  LOG_EQ,
+  LOG_SIM,
+  LOG_ADD,
+  LOG_SUB,
+  LOG_NEG,
+  LOG_INV,
+  LOG_FAC,
+  LOG_MOD,
+  LOG_INTDIV,
+  LOG_ANDGATE,
+  LOG_NANDGATE,
+  LOG_ORGATE,
+  LOG_NORGATE,
+  LOG_XORGATE,
+  LOG_XNORGATE,
+  LOG_SIN,
+  LOG_MAJGATE,
+  LOG_POW,
+  LOG_DIV,
+  LOG_LARGERTHAN,
+  LOG_SMALLERTHAN,
+  LOG_MUL,
+  LOG_NOTGATE,
+  LOG_SENSOR,
+  LOG_TOKEN,
+  LOG_MAIN,
+  LOG_SCRIPT,
+  LOG_PARSER,
+  LOG_TRANSP,
+  LOG_ALGRAND,
+  LOG_ALGGRAD,
+  LOG_ALGSYNC,
+  LOG_BOGUS,
+  LOG_TEST,
+  LOG_DEAL,
+  LOG_DELAY,
+  LOG_HOLD,
+  LOG_Q,
+  LOG_TICK,
+  LOG_WDT,
+  LOG_HSL,
+  LOG_PRINT,          // always active
+  LOG_COMBINE,
+  LOG_SCALE,
+  LOG_LOGIC,
+  LOG_FLASHWRITE,
+  LOG_FLASHREAD,
+  LOG_LASTENTRY
+} LOG_BLOCK;
 
-// do the actual operation
-void BlockDivision::out(void) {
-    LOG(LOG_DIV, 2,"DIV Execute");
+// init logging constants
+void InitLogging(void);
 
-    // retrieve ports and signals pointers from the script datastructure
-    float* signals = scriptHandler->getSignals();
-    ports_t* ports = scriptHandler->getPorts();
+// the actual log function
+void LOG(LOG_BLOCK lb, int loglevel, const char *format, ...);
 
-    float in1 = signals[ports[blockId].in[0]];
-    float in2 = signals[ports[blockId].in[1]];
+// compute checksum of the serial msg
+uint8_t getMsgChecksum(message_t *m);
 
-    // protect against division by 0 
-    float out = 0;
-    if (in2 != 0) {
-        out = in1 / in2;
-    }
+// send msg to the serial port
+void sendMsgToSerial(message_t, uint8_t);
 
-    signals[ports[blockId].out[0]] = out;
-
-    LOG(LOG_DIV, 1,"DIV in1=%f in2=%f out=%f",in1,in2,signals[ports[blockId].out[0]]);
-}
-
-// dummy functions needed because of derivation from abstract base class
-void BlockDivision::in(void) { }
-void BlockDivision::step(void) { }
-void BlockDivision::deallocate(void) { }
-
+#endif

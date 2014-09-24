@@ -30,38 +30,31 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "types.h"
 #include "logging.h"
-#include "block_division.h"
+#include "block_negative.h"
 
 // constructor
-BlockDivision::BlockDivision(runtimeState_t* runtimeState_, uint16_t blockId_) {
+BlockNegative::BlockNegative(runtimeState_t* runtimeState_, uint16_t blockId_) {
 	runtimeState = runtimeState_;
 	blockId      = blockId_;
 }
 
 // do the actual operation
-void BlockDivision::out(void) {
-    LOG(LOG_DIV, 2,"DIV Execute");
+void BlockNegative::out(void) {
+    LOG(LOG_SUB, 2,"NEG Execute");
 
     // retrieve ports and signals pointers from the script datastructure
     float* signals = scriptHandler->getSignals();
     ports_t* ports = scriptHandler->getPorts();
 
-    float in1 = signals[ports[blockId].in[0]];
-    float in2 = signals[ports[blockId].in[1]];
+    float in = signals[ports[blockId].in[0]];
 
-    // protect against division by 0 
-    float out = 0;
-    if (in2 != 0) {
-        out = in1 / in2;
-    }
+    signals[ports[blockId].out[0]] = -in;
 
-    signals[ports[blockId].out[0]] = out;
-
-    LOG(LOG_DIV, 1,"DIV in1=%f in2=%f out=%f",in1,in2,signals[ports[blockId].out[0]]);
+    LOG(LOG_SUB, 1,"NEG in=%f out=%f",in,signals[ports[blockId].out[0]]);
 }
 
 // dummy functions needed because of derivation from abstract base class
-void BlockDivision::in(void) { }
-void BlockDivision::step(void) { }
-void BlockDivision::deallocate(void) { }
+void BlockNegative::in(void) { }
+void BlockNegative::step(void) { }
+void BlockNegative::deallocate(void) { }
 

@@ -30,17 +30,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "types.h"
 #include "logging.h"
-#include "block_division.h"
+#include "block_intdiv.h"
 
 // constructor
-BlockDivision::BlockDivision(runtimeState_t* runtimeState_, uint16_t blockId_) {
+BlockIntDiv::BlockIntDiv(runtimeState_t* runtimeState_, uint16_t blockId_) {
 	runtimeState = runtimeState_;
 	blockId      = blockId_;
 }
 
 // do the actual operation
-void BlockDivision::out(void) {
-    LOG(LOG_DIV, 2,"DIV Execute");
+void BlockIntDiv::out(void) {
+    LOG(LOG_INTDIV, 2,"INTDIV Execute");
 
     // retrieve ports and signals pointers from the script datastructure
     float* signals = scriptHandler->getSignals();
@@ -52,16 +52,16 @@ void BlockDivision::out(void) {
     // protect against division by 0 
     float out = 0;
     if (in2 != 0) {
-        out = in1 / in2;
+        out = floor(in1 / in2);
     }
 
     signals[ports[blockId].out[0]] = out;
 
-    LOG(LOG_DIV, 1,"DIV in1=%f in2=%f out=%f",in1,in2,signals[ports[blockId].out[0]]);
+    LOG(LOG_INTDIV, 1,"INTDIV in1=%f in2=%f out=%f",in1,in2,signals[ports[blockId].out[0]]);
 }
 
 // dummy functions needed because of derivation from abstract base class
-void BlockDivision::in(void) { }
-void BlockDivision::step(void) { }
-void BlockDivision::deallocate(void) { }
+void BlockIntDiv::in(void) { }
+void BlockIntDiv::step(void) { }
+void BlockIntDiv::deallocate(void) { }
 

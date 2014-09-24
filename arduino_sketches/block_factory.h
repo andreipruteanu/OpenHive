@@ -28,40 +28,18 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef __block_factory_h
+#define __block_factory_h
+
 #include "types.h"
-#include "logging.h"
-#include "block_division.h"
+#include "block.h"
 
-// constructor
-BlockDivision::BlockDivision(runtimeState_t* runtimeState_, uint16_t blockId_) {
-	runtimeState = runtimeState_;
-	blockId      = blockId_;
-}
+// factory design pattern
+class BlockFactory {
+private:
+public:
+	// create a block object
+	static Block* makeBlock(runtimeState_t* runtimeState_, uint8_t blockName, uint16_t blockId);
+};
 
-// do the actual operation
-void BlockDivision::out(void) {
-    LOG(LOG_DIV, 2,"DIV Execute");
-
-    // retrieve ports and signals pointers from the script datastructure
-    float* signals = scriptHandler->getSignals();
-    ports_t* ports = scriptHandler->getPorts();
-
-    float in1 = signals[ports[blockId].in[0]];
-    float in2 = signals[ports[blockId].in[1]];
-
-    // protect against division by 0 
-    float out = 0;
-    if (in2 != 0) {
-        out = in1 / in2;
-    }
-
-    signals[ports[blockId].out[0]] = out;
-
-    LOG(LOG_DIV, 1,"DIV in1=%f in2=%f out=%f",in1,in2,signals[ports[blockId].out[0]]);
-}
-
-// dummy functions needed because of derivation from abstract base class
-void BlockDivision::in(void) { }
-void BlockDivision::step(void) { }
-void BlockDivision::deallocate(void) { }
-
+#endif
