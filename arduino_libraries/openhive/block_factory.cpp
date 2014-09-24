@@ -40,6 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "block_absolute.h"
 #include "block_intdiv.h"
 #include "block_modulus.h"
+#include "block_factorial.h"
+#include "block_equality.h"
 #include "Logging.h"
 
 // factory design pattern
@@ -57,35 +59,37 @@ Block* BlockFactory::makeBlock(runtimeState_t* runtimeState_, uint8_t blockName_
     	case ALG_RANDOM:
 			break;
     	case ADDITION:       // done
-    		return new BlockAddition(runtimeState_, blockId_);
+    		return new BlockAddition(      runtimeState_, blockId_);
     		break;
     	case MULTIPLICATION: // done
     		return new BlockMultiplication(runtimeState_, blockId_);
     		break;
     	case DIVISION:       // done
-    		return new BlockDivision(runtimeState_, blockId_);
+    		return new BlockDivision(      runtimeState_, blockId_);
     		break;
     	case SUBSTRACTION:   // done
-    		return new BlockSubstraction(runtimeState_, blockId_);
+    		return new BlockSubstraction(  runtimeState_, blockId_);
     		break;
     	case NEGATIVE:       // done
-    		return new BlockNegative(runtimeState_, blockId_);
+    		return new BlockNegative(      runtimeState_, blockId_);
 			break;
     	case POWER:			 // done
-    		return new BlockPower(runtimeState_, blockId_);
+    		return new BlockPower(         runtimeState_, blockId_);
 			break;
     	case ABSOLUTE:       // done
-    		return new BlockAbsolute(runtimeState_, blockId_);
+    		return new BlockAbsolute(      runtimeState_, blockId_);
 			break;
     	case INTDIV:		 // done
-    		return new BlockIntDiv(runtimeState_, blockId_);
+    		return new BlockIntDiv(        runtimeState_, blockId_);
 			break;
     	case MODULUS:        // done
-    		return new BlockModulus(runtimeState_, blockId_);
+    		return new BlockModulus(       runtimeState_, blockId_);
 			break;
-    	case FACTORIAL:
+    	case FACTORIAL:      // done
+    		return new BlockFactorial(     runtimeState_, blockId_);
 			break;
-    	case EQUALITY:
+    	case EQUALITY:       // done
+    		return new BlockEquality(      runtimeState_, blockId_);
 			break;
     	case SIMILARITY:
 			break;
