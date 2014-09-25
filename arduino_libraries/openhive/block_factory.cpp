@@ -42,6 +42,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "block_modulus.h"
 #include "block_factorial.h"
 #include "block_equality.h"
+#include "block_similarity.h"
+#include "block_smallerthan.h"
+#include "block_largerthan.h"
+#include "block_gateor.h"
+#include "block_gateand.h"
+#include "block_gatenot.h"
+#include "block_gatexor.h"
+#include "block_gatenand.h"
+#include "block_gatenor.h"
+#include "block_gatexnor.h"
 #include "Logging.h"
 
 // factory design pattern
@@ -52,7 +62,7 @@ Block* BlockFactory::makeBlock(runtimeState_t* runtimeState_, uint8_t blockName_
 		case ALG_SYNC:
 			break;
 		case ALG_GRADIENT:   // done
-			return new BlockGradient(runtimeState_, blockId_);
+			return new BlockGradient(      runtimeState_, blockId_);
 			break;
 		case ALG_TOKEN:
 			break;
@@ -91,27 +101,37 @@ Block* BlockFactory::makeBlock(runtimeState_t* runtimeState_, uint8_t blockName_
     	case EQUALITY:       // done
     		return new BlockEquality(      runtimeState_, blockId_);
 			break;
-    	case SIMILARITY:
+    	case SIMILARITY:     // done
+    		return new BlockSimilarity(    runtimeState_, blockId_);
 			break;
-    	case SMALLERTHAN:
+    	case SMALLERTHAN:    // done
+    		return new BlockSmallerThan(   runtimeState_, blockId_);
 			break;
-    	case LARGERTHAN:
+    	case LARGERTHAN:     // done
+    		return new BlockLargerThan(    runtimeState_, blockId_);
 			break;
-    	case GATEOR:
+    	case GATEOR:         // done
+    	    return new BlockGateOr(        runtimeState_, blockId_);
 			break;
-    	case GATEAND:
+    	case GATEAND:        // done
+    		return new BlockGateAnd(       runtimeState_, blockId_);
 			break;
-    	case GATENOT:
+    	case GATENOT:        // done
+    		return new BlockGateNot(       runtimeState_, blockId_);
 			break;
-    	case GATEXOR:
+    	case GATEXOR:        // done
+    		return new BlockGateXor(       runtimeState_, blockId_);
 			break;
-    	case GATENAND:
+    	case GATENAND:       // done
+    		return new BlockGateNand(      runtimeState_, blockId_);
 			break;
-    	case GATENOR:
+    	case GATENOR:        // done
+    		return new BlockGateNor(       runtimeState_, blockId_);
 			break;
     	case GATEMAJORITY:
 			break;
-    	case GATEXNOR:
+    	case GATEXNOR:       // done
+    		return new BlockGateXnor(      runtimeState_, blockId_);
 			break;
     	case SIN:
 			break;
