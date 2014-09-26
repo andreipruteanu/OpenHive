@@ -52,6 +52,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "block_gatenand.h"
 #include "block_gatenor.h"
 #include "block_gatexnor.h"
+#include "block_sin.h"
+#include "block_hsl.h"
+#include "block_combine.h"
+#include "block_scale.h"
 #include "Logging.h"
 
 // factory design pattern
@@ -133,7 +137,8 @@ Block* BlockFactory::makeBlock(runtimeState_t* runtimeState_, uint8_t blockName_
     	case GATEXNOR:       // done
     		return new BlockGateXnor(      runtimeState_, blockId_);
 			break;
-    	case SIN:
+    	case SIN:            // done
+    		return new BlockSin(           runtimeState_, blockId_);
 			break;
     	case SENSOR:
 			break;
@@ -145,11 +150,14 @@ Block* BlockFactory::makeBlock(runtimeState_t* runtimeState_, uint8_t blockName_
 			break;
     	case DELAY:
 			break;
-    	case HSL2RGB:
+    	case HSL2RGB:        // done
+    		return new BlockHSL(           runtimeState_, blockId_);
 			break;
-    	case COMBINE:
+    	case COMBINE:        // done
+    		return new BlockCombine(       runtimeState_, blockId_);
 			break;
-    	case SCALE:
+    	case SCALE:          // done 
+    		return new BlockScale(         runtimeState_, blockId_);
 			break;
     	case LOGIC:
 			break;
