@@ -56,6 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "block_hsl.h"
 #include "block_combine.h"
 #include "block_scale.h"
+#include "block_majority.h"
+#include "block_delay.h"
 #include "Logging.h"
 
 // factory design pattern
@@ -63,111 +65,45 @@ Block* BlockFactory::makeBlock(runtimeState_t* runtimeState_, uint8_t blockName_
 
 	// check which block we want to create
 	switch (blockName_) {
-		case ALG_SYNC:
-			break;
-		case ALG_GRADIENT:   // done
-			return new BlockGradient(      runtimeState_, blockId_);
-			break;
-		case ALG_TOKEN:
-			break;
-    	case ALG_RANDOM:
-			break;
-    	case ADDITION:       // done
-    		return new BlockAddition(      runtimeState_, blockId_);
-    		break;
-    	case MULTIPLICATION: // done
-    		return new BlockMultiplication(runtimeState_, blockId_);
-    		break;
-    	case DIVISION:       // done
-    		return new BlockDivision(      runtimeState_, blockId_);
-    		break;
-    	case SUBSTRACTION:   // done
-    		return new BlockSubstraction(  runtimeState_, blockId_);
-    		break;
-    	case NEGATIVE:       // done
-    		return new BlockNegative(      runtimeState_, blockId_);
-			break;
-    	case POWER:			 // done
-    		return new BlockPower(         runtimeState_, blockId_);
-			break;
-    	case ABSOLUTE:       // done
-    		return new BlockAbsolute(      runtimeState_, blockId_);
-			break;
-    	case INTDIV:		 // done
-    		return new BlockIntDiv(        runtimeState_, blockId_);
-			break;
-    	case MODULUS:        // done
-    		return new BlockModulus(       runtimeState_, blockId_);
-			break;
-    	case FACTORIAL:      // done
-    		return new BlockFactorial(     runtimeState_, blockId_);
-			break;
-    	case EQUALITY:       // done
-    		return new BlockEquality(      runtimeState_, blockId_);
-			break;
-    	case SIMILARITY:     // done
-    		return new BlockSimilarity(    runtimeState_, blockId_);
-			break;
-    	case SMALLERTHAN:    // done
-    		return new BlockSmallerThan(   runtimeState_, blockId_);
-			break;
-    	case LARGERTHAN:     // done
-    		return new BlockLargerThan(    runtimeState_, blockId_);
-			break;
-    	case GATEOR:         // done
-    	    return new BlockGateOr(        runtimeState_, blockId_);
-			break;
-    	case GATEAND:        // done
-    		return new BlockGateAnd(       runtimeState_, blockId_);
-			break;
-    	case GATENOT:        // done
-    		return new BlockGateNot(       runtimeState_, blockId_);
-			break;
-    	case GATEXOR:        // done
-    		return new BlockGateXor(       runtimeState_, blockId_);
-			break;
-    	case GATENAND:       // done
-    		return new BlockGateNand(      runtimeState_, blockId_);
-			break;
-    	case GATENOR:        // done
-    		return new BlockGateNor(       runtimeState_, blockId_);
-			break;
-    	case GATEMAJORITY:
-			break;
-    	case GATEXNOR:       // done
-    		return new BlockGateXnor(      runtimeState_, blockId_);
-			break;
-    	case SIN:            // done
-    		return new BlockSin(           runtimeState_, blockId_);
-			break;
-    	case SENSOR:
-			break;
-    	case ACTUATOR:
-			break;
-    	case HOLD:
-			break;
-    	case TICK:
-			break;
-    	case DELAY:
-			break;
-    	case HSL2RGB:        // done
-    		return new BlockHSL(           runtimeState_, blockId_);
-			break;
-    	case COMBINE:        // done
-    		return new BlockCombine(       runtimeState_, blockId_);
-			break;
-    	case SCALE:          // done 
-    		return new BlockScale(         runtimeState_, blockId_);
-			break;
-    	case LOGIC:
-			break;
-    	case FLASHWRITE:
-			break;
-    	case FLASHREAD:
-			break;
-		default:
-			LOG(LOG_PRINT,1,"Got unknown block type. Check the binary !\n");
-			break;
+		case ALG_SYNC:			break;
+		case ALG_GRADIENT:   return new BlockGradient(      runtimeState_, blockId_);	break; // done
+		case ALG_TOKEN:			break;
+    	case ALG_RANDOM:		break;
+    	case ADDITION:       return new BlockAddition(      runtimeState_, blockId_);	break; // done
+    	case MULTIPLICATION: return new BlockMultiplication(runtimeState_, blockId_);	break; // done
+    	case DIVISION:       return new BlockDivision(      runtimeState_, blockId_);	break; // done
+    	case SUBSTRACTION:   return new BlockSubstraction(  runtimeState_, blockId_);   break; // done
+    	case NEGATIVE:       return new BlockNegative(      runtimeState_, blockId_);	break; // done
+    	case POWER:          return new BlockPower(         runtimeState_, blockId_);	break; // done
+    	case ABSOLUTE:       return new BlockAbsolute(      runtimeState_, blockId_);   break; // done
+    	case INTDIV:         return new BlockIntDiv(        runtimeState_, blockId_);   break; // done
+    	case MODULUS:        return new BlockModulus(       runtimeState_, blockId_);   break; // done
+    	case FACTORIAL:      return new BlockFactorial(     runtimeState_, blockId_);   break; // done
+    	case EQUALITY:       return new BlockEquality(      runtimeState_, blockId_);   break; // done
+    	case SIMILARITY:     return new BlockSimilarity(    runtimeState_, blockId_);   break; // done
+    	case SMALLERTHAN:    return new BlockSmallerThan(   runtimeState_, blockId_);   break; // done
+    	case LARGERTHAN:     return new BlockLargerThan(    runtimeState_, blockId_);   break; // done
+    	case GATEOR:         return new BlockGateOr(        runtimeState_, blockId_);   break; // done
+    	case GATEAND:        return new BlockGateAnd(       runtimeState_, blockId_);   break; // done
+    	case GATENOT:        return new BlockGateNot(       runtimeState_, blockId_);   break; // done
+    	case GATEXOR:        return new BlockGateXor(       runtimeState_, blockId_);   break; // done
+    	case GATENAND:       return new BlockGateNand(      runtimeState_, blockId_);   break; // done
+    	case GATENOR:        return new BlockGateNor(       runtimeState_, blockId_);   break; // done
+    	case GATEMAJORITY:   return new BlockMajority(      runtimeState_, blockId_);   break; // done
+    	case GATEXNOR:       return new BlockGateXnor(      runtimeState_, blockId_);   break; // done
+    	case SIN:            return new BlockSin(           runtimeState_, blockId_);   break; // done
+    	case SENSOR:            break;
+    	case ACTUATOR:			break;
+    	case HOLD:				break;
+    	case TICK:				break;
+    	case DELAY:			 return new BlockDelay(         runtimeState_, blockId_);   break; // done
+    	case HSL2RGB:        return new BlockHSL(           runtimeState_, blockId_);   break; // done
+    	case COMBINE:        return new BlockCombine(       runtimeState_, blockId_);   break; // done
+    	case SCALE:          return new BlockScale(         runtimeState_, blockId_);   break; // done
+    	case LOGIC:             break;
+    	case FLASHWRITE:        break;
+    	case FLASHREAD:			break;
+		default:			LOG(LOG_PRINT,1,"Got unknown block type !\n");              break; // done
 	}
 }
 

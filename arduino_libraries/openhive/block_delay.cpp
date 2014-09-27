@@ -28,61 +28,61 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __block_gradient_h
-#define __block_gradient_h
+#include "types.h"
+#include "logging.h"
+#include "block_delay.h"
 
-#include "block.h"
-#include "queue.h"
-#include "script.h"
+// constructor
+BlockDelay::BlockDelay(runtimeState_t* runtimeState_, uint16_t blockId_) {
+	runtimeState = runtimeState_;
+	blockId      = blockId_;
 
-/**
- * \def gradient msg q size
-**/
-#define GRAD_MSG_Q_SIZE 10
+  LOG(LOG_DELAY, 2, "Allocating Delay Block");
 
-// the "hop" packet
-typedef struct {
-	uint8_t hopcount;
-	uint32_t tick;
-} hopMsg_t;
+  // retrieve ports and signals pointers from the script datastructure
+  float* signals = scriptHandler->getSignals();
+  ports_t* ports = scriptHandler->getPorts();
 
-// the input & output signals
-typedef struct {
-    Queue* q;  
-    uint32_t gradStart;        // time when gradient started
-    uint8_t  hopcount;         // output
-    uint8_t  amISource;        // input
-    uint32_t maxHopcount;      // max hopcount input
-} gradientState_t;
+  // read the delay value
+  maxsize = signals[ports[blockId].in[1]];
 
-class BlockGradient : public Block {
-private:
-	// pointer to the main state
-	runtimeState_t* runtimeState;
+  // allocate the queue 
+  q = new Queue(sizeof(float),maxsize + 5);
+    
+  LOG(LOG_DELAY, 2, "Allocating Delay Block - done");
+}
 
-	// gradient state
-	gradientState_t* state;
-	
-	// script object
-	Script* scriptHandler;
-	
-	uint16_t blockId;
-public:
-	BlockGradient(runtimeState_t*, uint16_t blockId);
-	void in(void);
-	void out(void);
-	void step(void);
-	void deallocate(void);
+// do the actual operation
+void BlockDelay::out(void) {
+    LOG(LOG_DELAY, 2,"Delay Out");
 
-	gradientState_t* getState(void);
-	uint16_t getStateSize(void);
+    // retrieve ports and signals pointers from the script datastructure
+    float* signals = scriptHandler->getSignals();
+    ports_t* ports = scriptHandler->getPorts();
 
-	// custom algorithm function prototypes
-	void addNbrGradToQueue(uint16_t id, hopMsg_t nbrGradMsg);
-	void gradConsumeNbrStateMsg(uint16_t, uint8_t*);
-	int32_t getMaxHopcount(uint16_t id);
-	uint32_t getMinGrad(uint16_t id);
-};
+    // 
+    float retval = 0;
 
-#endif
+    // trim the queue
+    while (q->length() >= maxsize) {
+        q->pop( (uint8_t*) &retval);
+    }
+
+    // add new element to queue
+    q->push((uint8_t*) &signals[ports[blockId].in[0]]);
+    
+    // update output
+    signals[ports[blockId].out[0]] = retval;
+
+    LOG(LOG_DELAY, 2, "Delay out new value: %f", signals[ports[blockId].out[0]]);
+}
+
+// dummy functions needed because of derivation from abstract base class
+void BlockDelay::in(void) { }
+void BlockDelay::step(void) { }
+
+void BlockDelay::deallocate(void) { 
+  // de-allocate the queue
+  delete q;
+}
 

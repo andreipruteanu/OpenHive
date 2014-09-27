@@ -28,61 +28,29 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __block_gradient_h
-#define __block_gradient_h
+#ifndef __block_majority_h
+#define __block_majority_h
 
 #include "block.h"
 #include "queue.h"
 #include "script.h"
 
-/**
- * \def gradient msg q size
-**/
-#define GRAD_MSG_Q_SIZE 10
-
-// the "hop" packet
-typedef struct {
-	uint8_t hopcount;
-	uint32_t tick;
-} hopMsg_t;
-
-// the input & output signals
-typedef struct {
-    Queue* q;  
-    uint32_t gradStart;        // time when gradient started
-    uint8_t  hopcount;         // output
-    uint8_t  amISource;        // input
-    uint32_t maxHopcount;      // max hopcount input
-} gradientState_t;
-
-class BlockGradient : public Block {
+class BlockMajority : public Block {
 private:
-	// pointer to the main state
+
+	// pointer to the runtime state
 	runtimeState_t* runtimeState;
 
-	// gradient state
-	gradientState_t* state;
-	
 	// script object
 	Script* scriptHandler;
-	
+
 	uint16_t blockId;
 public:
-	BlockGradient(runtimeState_t*, uint16_t blockId);
-	void in(void);
-	void out(void);
-	void step(void);
-	void deallocate(void);
-
-	gradientState_t* getState(void);
-	uint16_t getStateSize(void);
-
-	// custom algorithm function prototypes
-	void addNbrGradToQueue(uint16_t id, hopMsg_t nbrGradMsg);
-	void gradConsumeNbrStateMsg(uint16_t, uint8_t*);
-	int32_t getMaxHopcount(uint16_t id);
-	uint32_t getMinGrad(uint16_t id);
+	BlockMajority(runtimeState_t* state_, uint16_t blockId_);
+	void in(void);         // dummy
+	void out(void);        // does the actual computation
+	void step(void);       // dummy
+	void deallocate(void); // dummy
 };
 
 #endif
-

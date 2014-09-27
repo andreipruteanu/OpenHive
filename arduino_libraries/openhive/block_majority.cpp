@@ -28,61 +28,43 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __block_gradient_h
-#define __block_gradient_h
+#include "types.h"
+#include "logging.h"
+#include "block_majority.h"
 
-#include "block.h"
-#include "queue.h"
-#include "script.h"
+// constructor
+BlockMajority::BlockMajority(runtimeState_t* runtimeState_, uint16_t blockId_) {
+	runtimeState = runtimeState_;
+	blockId      = blockId_;
+}
 
-/**
- * \def gradient msg q size
-**/
-#define GRAD_MSG_Q_SIZE 10
+// do the actual operation
+void BlockMajority::out(void) {
+    LOG(LOG_MAJGATE, 2,"MajorityGate Execute");
 
-// the "hop" packet
-typedef struct {
-	uint8_t hopcount;
-	uint32_t tick;
-} hopMsg_t;
+    // retrieve ports and signals pointers from the script datastructure
+    float* signals = scriptHandler->getSignals();
+    ports_t* ports = scriptHandler->getPorts();
 
-// the input & output signals
-typedef struct {
-    Queue* q;  
-    uint32_t gradStart;        // time when gradient started
-    uint8_t  hopcount;         // output
-    uint8_t  amISource;        // input
-    uint32_t maxHopcount;      // max hopcount input
-} gradientState_t;
+    uint8_t in1 = signals[ports[blockId].in[0]] > 0 ? 1 : 0;
+    uint8_t in2 = signals[ports[blockId].in[1]] > 0 ? 1 : 0;
+    uint8_t in3 = signals[ports[blockId].in[2]] > 0 ? 1 : 0;
 
-class BlockGradient : public Block {
-private:
-	// pointer to the main state
-	runtimeState_t* runtimeState;
+    float out = 0;
+    if ((!in1 == !in2) || (!in1 == !in3)) {
+        out = !in1;
+    } else {
+        out = !in2; 
+    }
 
-	// gradient state
-	gradientState_t* state;
-	
-	// script object
-	Script* scriptHandler;
-	
-	uint16_t blockId;
-public:
-	BlockGradient(runtimeState_t*, uint16_t blockId);
-	void in(void);
-	void out(void);
-	void step(void);
-	void deallocate(void);
+    // write values into output signals
+    signals[ports[blockId].out[0]] = out;
 
-	gradientState_t* getState(void);
-	uint16_t getStateSize(void);
+    LOG(LOG_MAJGATE, 1,"MajorityGate in1=%d in2=%d in3=%d out=%f",in1,in2,in3,signals[ports[blockId].out[0]]);
+}
 
-	// custom algorithm function prototypes
-	void addNbrGradToQueue(uint16_t id, hopMsg_t nbrGradMsg);
-	void gradConsumeNbrStateMsg(uint16_t, uint8_t*);
-	int32_t getMaxHopcount(uint16_t id);
-	uint32_t getMinGrad(uint16_t id);
-};
-
-#endif
+// dummy functions needed because of derivation from abstract base class
+void BlockMajority::in(void) { }
+void BlockMajority::step(void) { }
+void BlockMajority::deallocate(void) { }
 
