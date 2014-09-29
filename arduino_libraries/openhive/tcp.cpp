@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "logging.h"
 #include "types.h"
 #include "block_gradient.h"
+#include "block_token.h"
 
 extern uint8_t debuglevel[LOG_LASTENTRY];
 
@@ -544,26 +545,46 @@ void TCP::beacon(void) {
  * process the incoming script msg
  **/
 void TCP::processIncomingScriptMsg(message_t *msg, uint8_t portId) {
-
+  // TODO
 }
 
-void TCP::feedNbrStateMsgToAlgo(nbrStateMessage_t*) {
+void TCP::feedNbrStateMsgToAlgo(nbrStateMessage_t* msg) {
+    uint8_t stateMsgBlockType = (scriptHandler->getBlockTypes())[msg->blockId];
 
+      // retrieve ports and signals pointers from the script datastructure
+    float* signals = scriptHandler->getSignals();
+    ports_t* ports = scriptHandler->getPorts();
+    
+    LOG(LOG_TRANSP, 2,"MSG NBR blkId=%d", msg->blockId);
+    
+    switch(stateMsgBlockType) {
+        case ALG_GRADIENT:
+            ((BlockGradient*)((scriptHandler->getBlocks())[msg->blockId]))->gradConsumeNbrStateMsg(msg->blockId, msg->payload);
+            break;
+        case ALG_SYNC:
+            //syncConsumeNbrStateMsg(msg->blockId, msg->payload);        
+            break;
+        case ALG_TOKEN:
+            ((BlockToken*)((scriptHandler->getBlocks())[msg->blockId]))->algTokenConsumeNbrStateMsg(msg->blockId,msg->payload,msg->portsnd,msg->portrcv);
+            break;
+        default:
+            break;
+    } 
 }
 
 void TCP::startTimerInt() {
-
+  // TODO
 }
 
 void TCP::stopTimerInt() {
-
+  // TDDO
 }
 
 /**
  * cleanup the TCP state
 **/
 void TCP::cleanupTCPstate(void) {
-
+  // TODO
 }
 
 void TCP::initQueues(void) {
