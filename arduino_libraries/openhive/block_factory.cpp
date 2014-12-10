@@ -2,6 +2,9 @@
 Copyright (c) 2014, Andrei Pruteanu
 All rights reserved.
 
+Code is an open source version of HiveKit by Hive-Systems created by 
+Andrei Pruteanu, Stefan Dulman and Tomasz Jaskiewicz.
+
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
@@ -12,7 +15,7 @@ modification, are permitted provided that the following conditions are met:
   this list of conditions and the following disclaimer in the documentation
   and/or other materials provided with the distribution.
 
-* Neither the name of the {organization} nor the names of its
+* Neither the name of "Open Hive" nor the names of its
   contributors may be used to endorse or promote products derived from
   this software without specific prior written permission.
 
